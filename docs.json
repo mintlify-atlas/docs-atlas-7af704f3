@@ -61,9 +61,15 @@
         "tab": "Command Reference",
         "groups": [
           {
-            "group": "Issue Management",
+            "group": "Getting Started",
             "pages": [
               "commands/init",
+              "commands/learn"
+            ]
+          },
+          {
+            "group": "Issue Management",
+            "pages": [
               "commands/create",
               "commands/list",
               "commands/show",
