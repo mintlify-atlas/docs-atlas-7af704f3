@@ -1,0 +1,145 @@
+{
+  "projectType": "cli-tool",
+  "projectName": "Tracer",
+  "projectDescription": "Lightweight issue tracker for AI agents with dependency tracking and multi-agent coordination",
+  "theme": "aspen",
+  "primaryColor": "#7c7c7c",
+  "lightColor": "#101010",
+  "darkColor": "#c2c2c2",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/issues",
+              "concepts/dependencies",
+              "concepts/status-workflow",
+              "concepts/priorities"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/basic-workflow",
+              "guides/dependency-management",
+              "guides/querying-filtering",
+              "guides/git-integration"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Command Reference",
+        "groups": [
+          {
+            "group": "Issue Management",
+            "pages": [
+              "commands/init",
+              "commands/create",
+              "commands/list",
+              "commands/show",
+              "commands/update",
+              "commands/close",
+              "commands/comment"
+            ]
+          },
+          {
+            "group": "Dependencies",
+            "pages": [
+              "commands/dep-add",
+              "commands/dep-remove",
+              "commands/dep-tree",
+              "commands/dep-cycles"
+            ]
+          },
+          {
+            "group": "Workflow",
+            "pages": [
+              "commands/ready",
+              "commands/blocked",
+              "commands/stats"
+            ]
+          },
+          {
+            "group": "Data Management",
+            "pages": [
+              "commands/export",
+              "commands/import"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Integration",
+        "groups": [
+          {
+            "group": "AI Agents",
+            "pages": [
+              "integration/agent-overview",
+              "integration/agent-workflow",
+              "integration/json-output",
+              "integration/best-practices"
+            ]
+          },
+          {
+            "group": "Multi-Agent",
+            "pages": [
+              "integration/multi-agent-coordination",
+              "integration/comments-communication",
+              "integration/auto-assignment"
+            ]
+          },
+          {
+            "group": "Examples",
+            "pages": [
+              "integration/example-scripts",
+              "integration/continuous-integration"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Dependency tracking with four relationship types (blocks, parent-child, related, discovered-from)",
+    "Multi-agent coordination via comments and auto-assignment",
+    "Ready work detection to find unblocked tasks",
+    "Git-friendly JSONL export/import",
+    "JSON output for programmatic access",
+    "SQLite storage with auto-discovery",
+    "Dependency tree visualization and cycle detection",
+    "Status tracking (open, in_progress, blocked, closed)",
+    "Priority levels and issue types",
+    "Audit trail with full event history"
+  ],
+  "publicApiSurface": [
+    "tracer init - Initialize tracker in project",
+    "tracer create - Create new issue",
+    "tracer list - List issues with filters",
+    "tracer show - Show issue details",
+    "tracer update - Update issue status",
+    "tracer close - Close one or more issues",
+    "tracer comment - Add comment to issue",
+    "tracer ready - Find unblocked work",
+    "tracer blocked - Find blocked issues",
+    "tracer dep add - Add dependency",
+    "tracer dep remove - Remove dependency",
+    "tracer dep tree - Show dependency tree",
+    "tracer dep cycles - Detect dependency cycles",
+    "tracer stats - Show project statistics",
+    "tracer export - Export to JSONL",
+    "tracer import - Import from JSONL",
+    "tracer learn - Learn tracer concepts"
+  ]
+}
