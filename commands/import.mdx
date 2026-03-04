@@ -1,0 +1,139 @@
+---
+title: "import"
+description: "Import issues from JSONL format"
+---
+
+## Syntax
+
+```bash
+tracer import [OPTIONS]
+```
+
+## Options
+
+<ParamField path="--input" type="path">
+  Input file path (defaults to stdin if not specified)
+  
+  Short flag: `-i`
+</ParamField>
+
+<ParamField path="--skip-existing" type="boolean">
+  Skip existing issues instead of updating them
+</ParamField>
+
+<ParamField path="--dry-run" type="boolean">
+  Show what would be imported without making changes
+</ParamField>
+
+## Examples
+
+<CodeGroup>
+
+```bash Import from File
+# Import issues from a file
+tracer import --input issues.jsonl
+```
+
+```bash Import from Stdin
+# Import from stdin
+cat backup.jsonl | tracer import
+```
+
+```bash Skip Existing
+# Don't update existing issues, only create new ones
+tracer import --input issues.jsonl --skip-existing
+```
+
+```bash Dry Run
+# Preview what would be imported
+tracer import --input issues.jsonl --dry-run
+```
+
+</CodeGroup>
+
+## Behavior
+
+The import command:
+
+1. Reads JSONL format (one JSON object per line)
+2. For each issue:
+   - If issue ID exists:
+     - **Default**: Updates the existing issue with new data
+     - **With `--skip-existing`**: Leaves the existing issue unchanged
+   - If issue ID doesn't exist: Creates a new issue
+3. Imports dependencies, avoiding duplicates
+4. Reports statistics on created, updated, and skipped issues
+
+## Output
+
+### Standard Import
+
+```
+✓ Import complete:
+  Created: 5
+  Updated: 12
+```
+
+### Import with Skip Existing
+
+```
+✓ Import complete:
+  Created: 5
+  Updated: 0
+  Skipped: 12
+```
+
+### Dry Run
+
+```
+Dry run: would import 17 issue(s)
+```
+
+## Input Format
+
+The import command expects JSONL (JSON Lines) format, where each line is a complete JSON object:
+
+```jsonl
+{"id":"bd-1","title":"Implement authentication","description":"Add OAuth support","status":"open","priority":1,"issue_type":"feature","assignee":"","created_at":"2025-03-01T10:00:00Z","updated_at":"2025-03-01T10:00:00Z","dependencies":[]}
+{"id":"bd-2","title":"Design auth schema","description":"","status":"open","priority":1,"issue_type":"task","assignee":"alice@example.com","created_at":"2025-03-01T09:00:00Z","updated_at":"2025-03-01T09:00:00Z","dependencies":[{"issue_id":"bd-2","depends_on_id":"bd-1","type":"parent-child","created_at":"2025-03-01T09:05:00Z","created_by":"system"}]}
+```
+
+<Note>
+  Empty lines in the input file are skipped. Malformed JSON will cause the import to fail with an error message.
+</Note>
+
+<Tip>
+  Use `--dry-run` first to verify the import will work as expected before making changes to your database.
+</Tip>
+
+## Use Cases
+
+### Backup and Restore
+
+```bash
+# Backup
+tracer export --output backup-$(date +%Y%m%d).jsonl
+
+# Restore
+tracer import --input backup-20250304.jsonl
+```
+
+### Migration Between Systems
+
+```bash
+# On source system
+tracer export --output migration.jsonl
+
+# Transfer file to destination system
+# On destination system
+tracer import --input migration.jsonl
+```
+
+### Selective Import
+
+```bash
+# Import only specific issues using jq
+tracer export --status closed | \
+  jq 'select(.priority <= 1)' | \
+  tracer import
+```

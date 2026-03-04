@@ -1,0 +1,148 @@
+---
+title: tracer show
+description: Display detailed information about a specific issue
+---
+
+## Syntax
+
+```bash
+tracer show <ISSUE_ID> [OPTIONS]
+```
+
+## Description
+
+Shows complete details for a single issue, including labels, dependencies, and recent comments.
+
+## Arguments
+
+<ParamField path="ISSUE_ID" type="string" required>
+  The ID of the issue to display (e.g., `bd-1`).
+</ParamField>
+
+## Options
+
+<ParamField path="--full" type="boolean">
+  Show full event history including all status changes and updates.
+</ParamField>
+
+<ParamField path="--json" type="boolean">
+  Output the issue in JSON format.
+</ParamField>
+
+## Examples
+
+<CodeGroup>
+
+```bash Basic details
+tracer show bd-1
+```
+
+```bash Full event history
+tracer show bd-1 --full
+```
+
+```bash JSON output
+tracer show bd-1 --json
+```
+
+</CodeGroup>
+
+## Output Format
+
+### Human-readable
+
+```
+bd-5 Fix null pointer in parser [P0, bug]
+  Status: in_progress
+  Assignee: agent-1
+  Created: 2026-03-02 14:30 | Updated: 2026-03-04 09:15
+
+  Description:
+  Parser crashes when input is empty or malformed
+
+  Labels: security, parser
+
+  Dependencies:
+    bd-7 → bd-5 (blocks)
+    bd-5 → bd-1 (discovered-from)
+
+  Recent comments:
+    agent-1 (2 hours ago): "Found the root cause in tokenizer"
+    human-dev (5 hours ago): "This is blocking deployment"
+```
+
+### With --full flag
+
+```
+bd-5 Fix null pointer in parser [P0, bug]
+  Status: in_progress
+  Assignee: agent-1
+  Created: 2026-03-02 14:30 | Updated: 2026-03-04 09:15
+
+  Description:
+  Parser crashes when input is empty or malformed
+
+  Labels: security, parser
+
+  Dependencies:
+    bd-7 → bd-5 (blocks)
+    bd-5 → bd-1 (discovered-from)
+
+  Recent comments:
+    agent-1 (2 hours ago): "Found the root cause in tokenizer"
+    human-dev (5 hours ago): "This is blocking deployment"
+
+  Recent Events:
+    [2026-03-04 09:15] Commented by agent-1
+      Found the root cause in tokenizer
+    [2026-03-04 07:00] StatusChanged by agent-1
+    [2026-03-03 16:30] Commented by human-dev
+      This is blocking deployment
+    [2026-03-02 14:30] Created by agent-1
+```
+
+### JSON (with --json flag)
+
+```json
+{
+  "id": "bd-5",
+  "title": "Fix null pointer in parser",
+  "description": "Parser crashes when input is empty or malformed",
+  "design": "",
+  "acceptance_criteria": "",
+  "notes": "",
+  "status": "in_progress",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "agent-1",
+  "estimated_minutes": null,
+  "created_at": "2026-03-02T14:30:00Z",
+  "updated_at": "2026-03-04T09:15:00Z",
+  "closed_at": null,
+  "external_ref": null,
+  "dependencies": []
+}
+```
+
+### Issue not found
+
+```
+Error: Issue bd-999 not found
+```
+
+<Note>
+The `show` command displays the most recent 5 comments by default. Use `--full` to see all events including status changes, assignments, and earlier comments.
+</Note>
+
+<Tip>
+Use `tracer show` before starting work to understand context:
+
+```bash
+# See what's blocking an issue
+tracer show bd-5
+
+# Get issue details in script
+ISSUE_JSON=$(tracer show bd-5 --json)
+TITLE=$(echo $ISSUE_JSON | jq -r '.title')
+```
+</Tip>

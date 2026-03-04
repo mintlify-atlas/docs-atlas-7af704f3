@@ -1,0 +1,300 @@
+---
+title: Multi-Agent Coordination
+description: Enable multiple AI agents to collaborate on issues using Tracer's coordination features
+---
+
+Tracer supports simple multi-agent coordination through comments, automatic assignee tracking, and shared visibility across all agents working on a project.
+
+## Overview
+
+Multi-agent coordination in Tracer is designed to be lightweight and frictionless:
+
+- **No registration required** - agents identify themselves via `--actor` flag or environment variables
+- **Auto-assignment** - agents are automatically assigned when they start work
+- **Comment-based communication** - agents leave updates visible to all
+- **Shared visibility** - all agents see who's working on what
+
+<Note>
+Tracer's multi-agent features work through the issue database, which can be synced via Git to coordinate agents across different machines.
+</Note>
+
+## Actor Identification
+
+Agents identify themselves in three ways:
+
+<Steps>
+  <Step title="Using the --actor flag">
+    ```bash
+    tracer --actor claude-1 update bd-1 --status in_progress
+    ```
+    Explicit identification for each command.
+  </Step>
+  
+  <Step title="Using TRACE_ACTOR environment variable">
+    ```bash
+    export TRACE_ACTOR="cursor-2"
+    tracer update bd-2 --status in_progress
+    ```
+    Set once per session for consistent identification.
+  </Step>
+  
+  <Step title="Falling back to $USER">
+    If neither `--actor` nor `$TRACE_ACTOR` is set, Tracer uses the `$USER` environment variable as the actor name.
+  </Step>
+</Steps>
+
+<Tip>
+For multi-agent environments, always set `TRACE_ACTOR` explicitly to avoid confusion when multiple agents share the same system user.
+</Tip>
+
+## Coordination Patterns
+
+### Sequential Work
+
+Agents work on issues one after another:
+
+<CodeGroup>
+```bash Agent 1 - Start Work
+# Claude starts on authentication
+export TRACE_ACTOR="claude-1"
+tracer update bd-1 --status in_progress
+tracer comment bd-1 "Working on JWT implementation"
+```
+
+```bash Agent 1 - Complete Work
+# Claude finishes
+tracer comment bd-1 "API complete, ready for testing"
+tracer close bd-1 --reason "Implementation done"
+```
+
+```bash Agent 2 - Pick Up Next
+# Cursor takes over testing
+export TRACE_ACTOR="cursor-2"
+tracer ready
+# bd-2 is now unblocked
+tracer update bd-2 --status in_progress
+tracer comment bd-2 "Starting tests for the new API"
+```
+</CodeGroup>
+
+### Parallel Work
+
+Multiple agents work on independent issues simultaneously:
+
+<Tabs>
+  <Tab title="Agent 1: claude-1">
+    ```bash
+    export TRACE_ACTOR="claude-1"
+    tracer update bd-1 --status in_progress
+    tracer comment bd-1 "Implementing authentication API"
+    ```
+  </Tab>
+  
+  <Tab title="Agent 2: cursor-2">
+    ```bash
+    export TRACE_ACTOR="cursor-2"
+    tracer update bd-2 --status in_progress
+    tracer comment bd-2 "Writing integration tests"
+    ```
+  </Tab>
+  
+  <Tab title="Agent 3: gpt-4">
+    ```bash
+    export TRACE_ACTOR="gpt-4"
+    tracer update bd-3 --status in_progress
+    tracer comment bd-3 "Fixing critical bug in parser"
+    ```
+  </Tab>
+</Tabs>
+
+### Handoff Pattern
+
+One agent requests help from another:
+
+```bash
+# Agent 1 encounters a blocker
+tracer --actor claude-1 update bd-1 --status blocked
+tracer comment bd-1 "Need help with authentication - stuck on OAuth flow"
+
+# Agent 2 sees the comment and helps
+tracer show bd-1
+tracer comment bd-1 "I can help with OAuth. Will create a subtask."
+
+# Agent 2 creates related work
+NEW_ID=$(tracer create "Implement OAuth flow" -t task -p 0 --json | jq -r '.id')
+tracer dep add $NEW_ID bd-1 --type related
+tracer --actor cursor-2 update $NEW_ID --status in_progress
+```
+
+## Visibility Features
+
+### Seeing Active Work
+
+View all in-progress issues with assignees:
+
+```bash
+tracer list --status in_progress
+
+bd-1 Implement auth [P1, in_progress, Assignee: claude-1]
+bd-2 Write tests [P1, in_progress, Assignee: cursor-2]
+bd-3 Fix bug [P0, in_progress, Assignee: gpt-4]
+```
+
+### Viewing Issue Activity
+
+See who's working on an issue and recent updates:
+
+```bash
+tracer show bd-1
+
+bd-1 Implement authentication API
+Status: in_progress
+Assignee: claude-1
+
+Recent comments:
+  cursor-2 (10 min ago): "I can help with frontend once ready"
+  claude-1 (20 min ago): "Working on JWT implementation"
+  claude-1 (30 min ago): "Started on this issue"
+```
+
+### Filtering by Assignee
+
+Find all work assigned to a specific agent:
+
+```bash
+tracer list --assignee claude-1 --json
+```
+
+## Multi-Agent Workflow Example
+
+<Accordion title="Complete 3-Agent Collaboration Session">
+  ```bash
+  # Initialize project
+  tracer init
+  
+  # Create initial issues
+  tracer create "Implement auth API" -p 1 -t feature
+  tracer create "Write auth tests" -p 1 -t task
+  tracer create "Update documentation" -p 2 -t task
+  
+  # Set up dependencies
+  tracer dep add bd-2 bd-1 --type blocks
+  tracer dep add bd-3 bd-1 --type blocks
+  
+  # Agent 1 starts work
+  export TRACE_ACTOR="claude-1"
+  tracer update bd-1 --status in_progress
+  tracer comment bd-1 "Starting JWT implementation"
+  
+  # Agent 2 checks status
+  export TRACE_ACTOR="cursor-2"
+  tracer ready
+  # No ready work - bd-2 blocked by bd-1
+  
+  tracer show bd-1
+  # Sees claude-1 is working on it
+  
+  tracer comment bd-1 "I'll start on tests as soon as API is ready"
+  
+  # Agent 1 completes work
+  export TRACE_ACTOR="claude-1"
+  tracer comment bd-1 "API complete and tested"
+  tracer close bd-1 --reason "Implementation complete"
+  
+  # Agent 2 sees work is unblocked
+  export TRACE_ACTOR="cursor-2"
+  tracer ready
+  # bd-2 and bd-3 now available
+  
+  tracer update bd-2 --status in_progress
+  tracer comment bd-2 "Starting test suite"
+  
+  # Agent 3 picks up documentation
+  export TRACE_ACTOR="gpt-4"
+  tracer update bd-3 --status in_progress
+  tracer comment bd-3 "Updating API documentation"
+  
+  # Check overall status
+  tracer list --status in_progress
+  # bd-2 [in_progress, Assignee: cursor-2]
+  # bd-3 [in_progress, Assignee: gpt-4]
+  ```
+</Accordion>
+
+## Best Practices
+
+### Always Set TRACE_ACTOR
+
+```bash
+# At the start of each agent session
+export TRACE_ACTOR="your-agent-name"
+```
+
+### Use Descriptive Agent Names
+
+```bash
+# Good: identifies model and instance
+export TRACE_ACTOR="claude-sonnet-1"
+export TRACE_ACTOR="cursor-agent-main"
+
+# Avoid: too generic
+export TRACE_ACTOR="agent"
+export TRACE_ACTOR="ai"
+```
+
+### Leave Informative Comments
+
+```bash
+# Good: specific and actionable
+tracer comment bd-1 "JWT tokens implemented, need frontend integration"
+
+# Avoid: vague
+tracer comment bd-1 "working on it"
+```
+
+### Check for Active Work Before Starting
+
+```bash
+# Always check if someone is already working
+tracer show bd-1
+
+# If assignee is set, leave a comment instead of taking over
+if [[ $(tracer show bd-1 --json | jq -r '.assignee') != "" ]]; then
+  tracer comment bd-1 "I can help with this if needed"
+else
+  tracer update bd-1 --status in_progress
+fi
+```
+
+## Syncing Across Machines
+
+When agents run on different machines, sync the Tracer database via Git:
+
+```bash
+# Machine 1: Agent 1 makes changes
+cd .trace
+git add issues.jsonl events.jsonl
+git commit -m "claude-1: completed bd-1"
+git push
+
+# Machine 2: Agent 2 syncs
+cd .trace
+git pull
+# Now sees claude-1's updates
+tracer show bd-1
+```
+
+<Note>
+The `.trace/` directory contains SQLite databases and JSONL exports. Commit the JSONL files to Git, and use `tracer import` after pulling to sync the database.
+</Note>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Comments & Communication" icon="comment" href="/integration/comments-communication">
+    Learn how to use comments effectively for agent coordination
+  </Card>
+  <Card title="Auto-Assignment" icon="user-check" href="/integration/auto-assignment">
+    Understand how automatic assignment works
+  </Card>
+</CardGroup>

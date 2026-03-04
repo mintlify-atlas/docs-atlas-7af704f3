@@ -1,0 +1,113 @@
+---
+title: "dep tree"
+description: "Show the dependency tree for an issue"
+---
+
+## Syntax
+
+```bash
+tracer dep tree <id> [OPTIONS]
+```
+
+## Parameters
+
+<ParamField path="id" type="string" required>
+  Root issue ID to display the dependency tree for
+</ParamField>
+
+## Options
+
+<ParamField path="--max-depth" type="integer" default="50">
+  Maximum depth to traverse in the dependency tree
+</ParamField>
+
+<ParamField path="--json" type="boolean">
+  Output result in JSON format
+</ParamField>
+
+## Examples
+
+<CodeGroup>
+
+```bash Basic Usage
+# Show dependency tree for bd-1
+tracer dep tree bd-1
+```
+
+```bash Limited Depth
+# Show only first 3 levels
+tracer dep tree bd-1 --max-depth 3
+```
+
+```bash JSON Output
+# Get structured JSON output
+tracer dep tree bd-1 --json
+```
+
+</CodeGroup>
+
+## Output
+
+### Human-Readable Format
+
+```
+Dependency tree for bd-1:
+
+bd-1 Implement user authentication [P1, open]
+  └─ bd-2 Design auth schema [P1, in_progress]
+    └─ bd-5 Research OAuth providers [P2, open]
+  └─ bd-3 Create login endpoint [P1, open]
+  └─ bd-4 Add session management [P1, blocked]
+    └─ bd-2 Design auth schema [P1, in_progress] [...]
+```
+
+<Note>
+  The `[...]` marker indicates that a branch has been truncated to avoid showing circular dependencies or exceeding max depth.
+</Note>
+
+### JSON Format
+
+```json
+[
+  {
+    "id": "bd-1",
+    "title": "Implement user authentication",
+    "status": "open",
+    "priority": 1,
+    "issue_type": "epic",
+    "assignee": "",
+    "created_at": "2025-03-04T10:00:00Z",
+    "updated_at": "2025-03-04T10:00:00Z",
+    "depth": 0,
+    "truncated": false
+  },
+  {
+    "id": "bd-2",
+    "title": "Design auth schema",
+    "status": "in_progress",
+    "priority": 1,
+    "issue_type": "task",
+    "assignee": "alice@example.com",
+    "created_at": "2025-03-04T10:05:00Z",
+    "updated_at": "2025-03-04T11:00:00Z",
+    "depth": 1,
+    "truncated": false
+  },
+  {
+    "id": "bd-5",
+    "title": "Research OAuth providers",
+    "status": "open",
+    "priority": 2,
+    "issue_type": "task",
+    "assignee": "",
+    "created_at": "2025-03-04T10:15:00Z",
+    "updated_at": "2025-03-04T10:15:00Z",
+    "depth": 2,
+    "truncated": false
+  }
+]
+```
+
+<Tip>
+  The tree shows all transitive dependencies, making it easy to understand the full scope of work required to complete an issue.
+</Tip>

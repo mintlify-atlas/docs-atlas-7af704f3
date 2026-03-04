@@ -1,0 +1,140 @@
+---
+title: "ready"
+description: "List issues that are ready to work on (no blocking dependencies)"
+---
+
+## Syntax
+
+```bash
+tracer ready [OPTIONS]
+```
+
+## Options
+
+<ParamField path="--priority" type="integer">
+  Filter by priority level (0-4, where 0 is highest priority)
+</ParamField>
+
+<ParamField path="--assignee" type="string">
+  Filter by assignee email or name
+</ParamField>
+
+<ParamField path="--limit" type="integer">
+  Maximum number of results to return
+</ParamField>
+
+<ParamField path="--json" type="boolean">
+  Output result in JSON format
+</ParamField>
+
+## Examples
+
+<CodeGroup>
+
+```bash Basic Usage
+# Show all ready work
+tracer ready
+```
+
+```bash Filter by Priority
+# Show only highest priority ready work
+tracer ready --priority 0
+```
+
+```bash Filter by Assignee
+# Show ready work assigned to Alice
+tracer ready --assignee alice@example.com
+```
+
+```bash Limit Results
+# Show top 5 ready issues
+tracer ready --limit 5
+```
+
+```bash Combined Filters
+# Show top 3 highest priority issues for Bob
+tracer ready --priority 0 --assignee bob@example.com --limit 3
+```
+
+```bash JSON Output
+# Get structured JSON for programmatic use
+tracer ready --json
+```
+
+</CodeGroup>
+
+## Output
+
+### Human-Readable Format
+
+```
+✓ Ready work: 3 issue(s)
+
+bd-5 Implement user profile page [P1, feature]
+  Status: open
+  Created: 2025-03-04 10:00 | Updated: 2025-03-04 10:00
+
+bd-8 Fix validation bug [P0, bug]
+  Status: open
+  Created: 2025-03-04 11:00 | Updated: 2025-03-04 11:00
+
+bd-12 Add tests for validation [P1, task]
+  Status: open
+  Assignee: alice@example.com
+  Created: 2025-03-04 12:00 | Updated: 2025-03-04 12:00
+```
+
+### Human-Readable Format (No Ready Work)
+
+```
+No ready work found
+```
+
+### JSON Format
+
+```json
+[
+  {
+    "id": "bd-8",
+    "title": "Fix validation bug",
+    "description": "",
+    "status": "open",
+    "priority": 0,
+    "issue_type": "bug",
+    "assignee": "",
+    "created_at": "2025-03-04T11:00:00Z",
+    "updated_at": "2025-03-04T11:00:00Z"
+  },
+  {
+    "id": "bd-5",
+    "title": "Implement user profile page",
+    "description": "Create a user profile page with edit capabilities",
+    "status": "open",
+    "priority": 1,
+    "issue_type": "feature",
+    "assignee": "",
+    "estimated_minutes": 120,
+    "created_at": "2025-03-04T10:00:00Z",
+    "updated_at": "2025-03-04T10:00:00Z"
+  },
+  {
+    "id": "bd-12",
+    "title": "Add tests for validation",
+    "description": "",
+    "status": "open",
+    "priority": 1,
+    "issue_type": "task",
+    "assignee": "alice@example.com",
+    "created_at": "2025-03-04T12:00:00Z",
+    "updated_at": "2025-03-04T12:00:00Z"
+  }
+]
+```
+
+<Note>
+  Ready work only includes issues with status "open" that have no unresolved blocking dependencies.
+</Note>
+
+<Tip>
+  Use `tracer ready --json | jq` to pipe the output into jq for advanced filtering and processing.
+</Tip>

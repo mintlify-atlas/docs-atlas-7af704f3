@@ -1,122 +1,132 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "Tracer",
+  "theme": "aspen",
+  "mode": "custom",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#7c7c7c",
+    "light": "#101010",
+    "dark": "#c2c2c2"
   },
-  "favicon": "/favicon.svg",
+  "favicon": "https://media.brand.dev/b2b86afe-417e-4525-8731-bcadae664424.png",
+  "logo": {
+    "light": "https://media.brand.dev/cc86d86b-b273-425b-8135-5a6d72225f5c.svg",
+    "dark": "https://media.brand.dev/5efbca9d-5904-4eaf-96af-3f58af587e26.svg"
+  },
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/Abil-Shrestha/tracer"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/Abil-Shrestha/tracer"
+    }
+  },
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Documentation",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Get Started",
             "pages": [
-              "index",
-              "quickstart",
-              "development"
+              "introduction",
+              "installation",
+              "quickstart"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Core Concepts",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "concepts/issues",
+              "concepts/dependencies",
+              "concepts/status-workflow",
+              "concepts/priorities"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Guides",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
-            ]
-          },
-          {
-            "group": "AI tools",
-            "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "guides/basic-workflow",
+              "guides/dependency-management",
+              "guides/querying-filtering",
+              "guides/git-integration"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "Command Reference",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Issue Management",
             "pages": [
-              "api-reference/introduction"
+              "commands/init",
+              "commands/create",
+              "commands/list",
+              "commands/show",
+              "commands/update",
+              "commands/close",
+              "commands/comment"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "Dependencies",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "commands/dep-add",
+              "commands/dep-remove",
+              "commands/dep-tree",
+              "commands/dep-cycles"
+            ]
+          },
+          {
+            "group": "Workflow",
+            "pages": [
+              "commands/ready",
+              "commands/blocked",
+              "commands/stats"
+            ]
+          },
+          {
+            "group": "Data Management",
+            "pages": [
+              "commands/export",
+              "commands/import"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Integration",
+        "groups": [
+          {
+            "group": "AI Agents",
+            "pages": [
+              "integration/agent-overview",
+              "integration/agent-workflow",
+              "integration/json-output",
+              "integration/best-practices"
+            ]
+          },
+          {
+            "group": "Multi-Agent",
+            "pages": [
+              "integration/multi-agent-coordination",
+              "integration/comments-communication",
+              "integration/auto-assignment"
+            ]
+          },
+          {
+            "group": "Examples",
+            "pages": [
+              "integration/example-scripts",
+              "integration/continuous-integration"
             ]
           }
         ]
       }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
-  },
-  "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
-      }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
-    }
-  },
-  "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
-  },
-  "footer": {
-    "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
-    }
+    ]
   }
 }

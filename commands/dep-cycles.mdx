@@ -1,0 +1,110 @@
+---
+title: "dep cycles"
+description: "Detect circular dependencies in the issue graph"
+---
+
+## Syntax
+
+```bash
+tracer dep cycles
+```
+
+## Options
+
+<ParamField path="--json" type="boolean">
+  Output result in JSON format
+</ParamField>
+
+## Examples
+
+<CodeGroup>
+
+```bash Basic Usage
+# Check for dependency cycles
+tracer dep cycles
+```
+
+```bash JSON Output
+# Get structured JSON output
+tracer dep cycles --json
+```
+
+</CodeGroup>
+
+## Output
+
+### Human-Readable Format (No Cycles)
+
+```
+✓ No dependency cycles detected
+```
+
+### Human-Readable Format (Cycles Found)
+
+```
+⚠ Found 2 cycle(s):
+
+Cycle 1:
+  → bd-2 Design auth schema
+  → bd-5 Implement OAuth
+  → bd-2 Design auth schema
+
+Cycle 2:
+  → bd-10 Create API
+  → bd-11 Write docs
+  → bd-12 Deploy service
+  → bd-10 Create API
+```
+
+### JSON Format (No Cycles)
+
+```json
+[]
+```
+
+### JSON Format (Cycles Found)
+
+```json
+[
+  [
+    {
+      "id": "bd-2",
+      "title": "Design auth schema",
+      "status": "in_progress",
+      "priority": 1,
+      "issue_type": "task",
+      "assignee": "alice@example.com",
+      "created_at": "2025-03-04T10:00:00Z",
+      "updated_at": "2025-03-04T11:00:00Z"
+    },
+    {
+      "id": "bd-5",
+      "title": "Implement OAuth",
+      "status": "open",
+      "priority": 1,
+      "issue_type": "task",
+      "assignee": "",
+      "created_at": "2025-03-04T10:05:00Z",
+      "updated_at": "2025-03-04T10:05:00Z"
+    },
+    {
+      "id": "bd-2",
+      "title": "Design auth schema",
+      "status": "in_progress",
+      "priority": 1,
+      "issue_type": "task",
+      "assignee": "alice@example.com",
+      "created_at": "2025-03-04T10:00:00Z",
+      "updated_at": "2025-03-04T11:00:00Z"
+    }
+  ]
+]
+```
+
+<Note>
+  Circular dependencies indicate a logical error in your dependency graph. Issues in a cycle cannot be completed because they each depend on the other.
+</Note>
+
+<Tip>
+  Use `tracer dep remove <from> <to>` to break cycles by removing incorrect dependencies.
+</Tip>

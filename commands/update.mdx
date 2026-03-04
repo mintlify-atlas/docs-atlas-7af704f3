@@ -1,0 +1,160 @@
+---
+title: tracer update
+description: Update fields on an existing issue
+---
+
+## Syntax
+
+```bash
+tracer update <ISSUE_ID> [OPTIONS]
+```
+
+## Description
+
+Updates one or more fields on an existing issue. Only specified fields are changed; unspecified fields remain unchanged.
+
+## Arguments
+
+<ParamField path="ISSUE_ID" type="string" required>
+  The ID of the issue to update (e.g., `bd-1`).
+</ParamField>
+
+## Options
+
+<ParamField path="--title" type="string">
+  Update the issue title.
+</ParamField>
+
+<ParamField path="--description" type="string">
+  Update the issue description.
+</ParamField>
+
+<ParamField path="--status" type="enum">
+  Update the issue status. Valid values: `open`, `in_progress`, `blocked`, `closed`.
+</ParamField>
+
+<ParamField path="--priority" type="integer">
+  Update the priority (0-4).
+</ParamField>
+
+<ParamField path="--issue-type" type="enum">
+  Update the issue type. Valid values: `bug`, `feature`, `task`, `epic`, `chore`.
+</ParamField>
+
+<ParamField path="--assignee" type="string">
+  Update the assignee.
+</ParamField>
+
+<ParamField path="--json" type="boolean">
+  Output the updated issue in JSON format.
+</ParamField>
+
+## Examples
+
+<CodeGroup>
+
+```bash Start working on an issue
+tracer update bd-5 --status in_progress
+```
+
+```bash Change priority
+tracer update bd-10 --priority 0
+```
+
+```bash Update title and description
+tracer update bd-3 \
+  --title "Fix critical auth bug" \
+  --description "Users can bypass authentication"
+```
+
+```bash Assign to someone
+tracer update bd-7 --assignee "agent-2"
+```
+
+```bash Mark as blocked
+tracer update bd-5 --status blocked
+```
+
+```bash Change issue type
+tracer update bd-12 --issue-type feature
+```
+
+```bash Multiple updates
+tracer update bd-8 \
+  --status in_progress \
+  --priority 1 \
+  --assignee "agent-1"
+```
+
+</CodeGroup>
+
+## Output Format
+
+### Human-readable
+
+```
+✓ Updated issue bd-5
+```
+
+### JSON (with --json flag)
+
+```json
+{
+  "id": "bd-5",
+  "title": "Fix null pointer in parser",
+  "description": "Parser crashes when input is empty or malformed",
+  "design": "",
+  "acceptance_criteria": "",
+  "notes": "",
+  "status": "in_progress",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "agent-1",
+  "estimated_minutes": null,
+  "created_at": "2026-03-02T14:30:00Z",
+  "updated_at": "2026-03-04T10:30:00Z",
+  "closed_at": null,
+  "external_ref": null,
+  "dependencies": []
+}
+```
+
+### Issue not found
+
+```
+Error: Issue bd-999 not found
+```
+
+## Auto-assignment Behavior
+
+When you update an issue to `in_progress` status without specifying an assignee, tracer automatically assigns it to the current actor (from `$TRACE_ACTOR` or `$USER`).
+
+```bash
+# This automatically assigns to current user
+tracer update bd-5 --status in_progress
+
+# Equivalent to:
+tracer update bd-5 --status in_progress --assignee "$USER"
+```
+
+<Note>
+Every update creates an event in the issue's history. Use `tracer show <id> --full` to see the complete event timeline.
+</Note>
+
+<Tip>
+Common status workflow:
+
+```bash
+# Claim work
+tracer update bd-5 --status in_progress
+
+# Hit a blocker
+tracer update bd-5 --status blocked
+
+# Resume work
+tracer update bd-5 --status in_progress
+
+# Complete (or use tracer close)
+tracer update bd-5 --status closed
+```
+</Tip>

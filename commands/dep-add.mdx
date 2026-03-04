@@ -1,0 +1,90 @@
+---
+title: "dep add"
+description: "Add a dependency between issues"
+---
+
+## Syntax
+
+```bash
+tracer dep add <issue_id> <depends_on_id> [OPTIONS]
+```
+
+## Parameters
+
+<ParamField path="issue_id" type="string" required>
+  The issue ID that depends on another issue
+</ParamField>
+
+<ParamField path="depends_on_id" type="string" required>
+  The issue ID that is depended on
+</ParamField>
+
+## Options
+
+<ParamField path="--type" type="string" default="blocks">
+  Dependency type. Available values:
+  - `blocks` - Issue is blocked by the dependency
+  - `related` - Issues are related but don't block
+  - `parent-child` - Parent-child relationship (for epics)
+  - `discovered-from` - Issue was discovered while working on another
+  
+  Short flag: `-t`
+</ParamField>
+
+<ParamField path="--json" type="boolean">
+  Output result in JSON format
+</ParamField>
+
+## Examples
+
+<CodeGroup>
+
+```bash Basic Usage
+# Add a blocking dependency
+tracer dep add bd-2 bd-1
+```
+
+```bash Parent-Child Relationship
+# Mark bd-3 as a subtask of epic bd-1
+tracer dep add bd-3 bd-1 --type parent-child
+```
+
+```bash Track Discovered Work
+# Link a bug discovered while working on bd-5
+tracer dep add bd-7 bd-5 --type discovered-from
+```
+
+```bash JSON Output
+# Get JSON response
+tracer dep add bd-2 bd-1 --json
+```
+
+</CodeGroup>
+
+## Output
+
+### Human-Readable Format
+
+```
+✓ Added dependency: bd-2 --blocks--> bd-1
+```
+
+### JSON Format
+
+```json
+{
+  "issue_id": "bd-2",
+  "depends_on_id": "bd-1",
+  "type": "blocks",
+  "created_at": "2025-03-04T10:30:00Z",
+  "created_by": "user@example.com"
+}
+```
+
+<Note>
+  Both issues must exist before creating a dependency. The command will fail if either issue ID is not found.
+</Note>
+
+<Tip>
+  Use `tracer dep tree <issue_id>` to visualize the complete dependency graph after adding dependencies.
+</Tip>

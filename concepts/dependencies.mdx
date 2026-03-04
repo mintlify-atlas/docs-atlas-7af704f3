@@ -1,0 +1,353 @@
+---
+title: Dependencies
+description: Understanding the four dependency types and how to use them to organize work in Tracer
+---
+
+## Overview
+
+Dependencies create relationships between issues. Tracer supports four distinct dependency types, each serving a specific purpose in organizing and tracking work.
+
+## Dependency Types
+
+### Blocks
+
+The `blocks` dependency indicates that one issue must be completed before another can start.
+
+```bash
+# bd-2 is blocked by bd-1
+# (bd-1 must finish before bd-2 can start)
+tracer dep add bd-2 bd-1 --type blocks
+```
+
+**When to use:**
+- Technical dependencies ("can't build feature B without API A")
+- Sequential work ("design must finish before implementation")
+- Critical path planning ("deploy blocker")
+
+<Info>
+  Issues with unresolved `blocks` dependencies won't appear in `tracer ready` output.
+</Info>
+
+**Example workflow:**
+
+```bash
+# Create issues
+tracer create "Design auth schema" -p 1
+# Created: bd-1
+
+tracer create "Implement login endpoint" -p 1
+# Created: bd-2
+
+# bd-2 is blocked by bd-1
+tracer dep add bd-2 bd-1 --type blocks
+
+# Check ready work - only bd-1 appears
+tracer ready
+# Shows: bd-1 (bd-2 is blocked)
+
+# Complete bd-1
+tracer close bd-1 --reason "Schema designed"
+
+# Now bd-2 is unblocked
+tracer ready
+# Shows: bd-2 (now ready to start)
+```
+
+### Parent-Child
+
+The `parent-child` dependency organizes work hierarchically, typically for epics with subtasks.
+
+```bash
+# bd-5 is a subtask of epic bd-1
+tracer dep add bd-5 bd-1 --type parent-child
+```
+
+**When to use:**
+- Breaking down epics into smaller tasks
+- Organizing related work under a theme
+- Tracking progress on large initiatives
+
+<Tip>
+  Use epics with parent-child dependencies to organize complex features into manageable chunks.
+</Tip>
+
+**Example workflow:**
+
+```bash
+# Create an epic
+tracer create "User authentication system" -t epic -p 0
+# Created: bd-1
+
+# Create subtasks
+tracer create "Design auth schema" -t task -p 1
+# Created: bd-2
+
+tracer create "Implement login endpoint" -t task -p 1
+# Created: bd-3
+
+tracer create "Add session management" -t task -p 1
+# Created: bd-4
+
+# Link subtasks to epic
+tracer dep add bd-2 bd-1 --type parent-child
+tracer dep add bd-3 bd-1 --type parent-child
+tracer dep add bd-4 bd-1 --type parent-child
+
+# Add blocks between subtasks
+tracer dep add bd-3 bd-2 --type blocks  # login blocked by schema
+tracer dep add bd-4 bd-2 --type blocks  # session blocked by schema
+
+# View the tree
+tracer dep tree bd-1
+```
+
+### Related
+
+The `related` dependency links issues that are connected but don't block each other.
+
+```bash
+# bd-3 and bd-5 are related but independent
+tracer dep add bd-3 bd-5 --type related
+```
+
+**When to use:**
+- Issues that share context or background
+- Work that should be done together but can proceed in parallel
+- Cross-referencing similar issues
+
+**Example workflow:**
+
+```bash
+# Two independent but related tasks
+tracer create "Add frontend login form" -p 1
+# Created: bd-10
+
+tracer create "Add backend login API" -p 1
+# Created: bd-11
+
+# They're related but can be done in parallel
+tracer dep add bd-10 bd-11 --type related
+
+# Both appear in ready work
+tracer ready
+# Shows: bd-10, bd-11 (both ready)
+```
+
+<Note>
+  `related` dependencies are for documentation only - they don't affect `tracer ready` or block status.
+</Note>
+
+### Discovered-From
+
+The `discovered-from` dependency tracks work found while working on another issue.
+
+```bash
+# bd-7 was discovered while working on bd-3
+tracer dep add bd-7 bd-3 --type discovered-from
+```
+
+**When to use:**
+- Bugs found during feature implementation
+- Technical debt identified during refactoring
+- Scope expansion or follow-up work
+- Maintaining audit trail of work discovery
+
+<Tip>
+  AI agents should use `discovered-from` to file issues as they work, ensuring nothing gets lost.
+</Tip>
+
+**Example workflow:**
+
+```bash
+# Start working on a feature
+tracer update bd-5 --status in_progress
+
+# Discover a bug while implementing
+tracer create "Fix null pointer in validation" -t bug -p 0
+# Created: bd-12
+
+# Link it back to the parent work
+tracer dep add bd-12 bd-5 --type discovered-from
+
+# Later, see what was discovered
+tracer show bd-5
+# Shows dependencies including discovered issues
+```
+
+## Dependency Structure
+
+Each dependency record contains:
+
+```rust
+pub struct Dependency {
+    pub issue_id: String,        // The issue with the dependency
+    pub depends_on_id: String,   // The issue it depends on
+    pub dep_type: DependencyType, // blocks, parent-child, related, discovered-from
+    pub created_at: DateTime<Utc>, // When dependency was added
+    pub created_by: String,      // Who added it
+}
+```
+
+## Managing Dependencies
+
+### Add Dependencies
+
+```bash
+# Basic syntax
+tracer dep add <from-issue> <to-issue> --type <type>
+
+# Examples
+tracer dep add bd-2 bd-1 --type blocks
+tracer dep add bd-5 bd-1 --type parent-child
+tracer dep add bd-3 bd-5 --type related
+tracer dep add bd-7 bd-3 --type discovered-from
+```
+
+### Remove Dependencies
+
+```bash
+# Remove a dependency
+tracer dep remove bd-2 bd-1
+
+# Works for any dependency type
+tracer dep remove bd-5 bd-1
+```
+
+### View Dependencies
+
+<Tabs>
+  <Tab title="Show Command">
+    ```bash
+    # See all dependencies for an issue
+    tracer show bd-1
+    
+    # JSON output for parsing
+    tracer show bd-1 --json | jq '.dependencies'
+    ```
+  </Tab>
+  
+  <Tab title="Dependency Tree">
+    ```bash
+    # Visualize the full dependency tree
+    tracer dep tree bd-1
+    
+    # Limit depth
+    tracer dep tree bd-1 --max-depth 5
+    ```
+    
+    Trees show the complete hierarchy of dependencies.
+  </Tab>
+  
+  <Tab title="Blocked Issues">
+    ```bash
+    # See all blocked issues
+    tracer blocked
+    
+    # Shows what's blocking each issue
+    tracer blocked --json
+    ```
+  </Tab>
+</Tabs>
+
+## Cycle Detection
+
+Tracer prevents circular dependencies:
+
+```bash
+# Detect any cycles in dependencies
+tracer dep cycles
+```
+
+If cycles exist, they must be resolved before affected issues can proceed:
+
+```bash
+# Example: bd-1 → bd-2 → bd-3 → bd-1 (cycle!)
+tracer dep remove bd-1 bd-3  # Break the cycle
+```
+
+<Note>
+  Circular dependencies indicate a design problem. Review your dependency structure if cycles are detected.
+</Note>
+
+## How Dependencies Affect Ready Work
+
+The `tracer ready` command finds issues that have no blockers:
+
+```sql
+-- From sqlite.rs:596
+SELECT * FROM issues i
+WHERE i.status = 'open'
+AND i.id NOT IN (
+    SELECT d.issue_id
+    FROM dependencies d
+    JOIN issues blocker ON d.depends_on_id = blocker.id
+    WHERE d.type = 'blocks' AND blocker.status != 'closed'
+)
+```
+
+**Key points:**
+- Only `blocks` dependencies affect ready work
+- Issues are blocked until blockers are `closed`
+- Other dependency types (`parent-child`, `related`, `discovered-from`) don't block
+
+## Best Practices
+
+<Accordion title="Use blocks sparingly">
+  Only create `blocks` dependencies for true technical or sequential requirements. Over-blocking limits parallel work.
+  
+  **Good**: "Can't deploy without tests"  
+  **Bad**: "These are related" (use `related` instead)
+</Accordion>
+
+<Accordion title="Organize epics with parent-child">
+  Break down large work into subtasks using `parent-child`. Add `blocks` between subtasks only if they truly must be sequential.
+  
+  ```bash
+  # Epic with parallel subtasks
+  tracer dep add task-1 epic-1 --type parent-child
+  tracer dep add task-2 epic-1 --type parent-child
+  tracer dep add task-3 epic-1 --type parent-child
+  # All three tasks can proceed in parallel
+  ```
+</Accordion>
+
+<Accordion title="Track discoveries">
+  Use `discovered-from` whenever you find new work while working on an issue. This maintains context and prevents work from being lost.
+  
+  ```bash
+  # Found while working on bd-5
+  NEW_ID=$(tracer create "Fix edge case" -t bug -p 0 --json | jq -r '.id')
+  tracer dep add $NEW_ID bd-5 --type discovered-from
+  ```
+</Accordion>
+
+<Accordion title="Document relationships with related">
+  Use `related` to cross-reference issues that should be considered together but don't have hard dependencies.
+</Accordion>
+
+<Accordion title="Check for cycles regularly">
+  Run `tracer dep cycles` periodically, especially after adding complex dependency chains.
+</Accordion>
+
+## Querying Dependencies
+
+For advanced dependency queries, use JSON output:
+
+```bash
+# Get all dependencies for an issue
+tracer show bd-1 --json | jq '.dependencies'
+
+# Find all issues discovered from bd-5
+tracer show bd-5 --json | \
+  jq '.dependencies[] | select(.dep_type == "discovered-from")'
+
+# List all parent-child relationships
+tracer list --json | \
+  jq '.[] | select(.dependencies[].dep_type == "parent-child")'
+```
+
+## Next Steps
+
+- Learn about [Status Workflow](/concepts/status-workflow) to understand issue lifecycle
+- See [Issues](/concepts/issues) for core issue concepts
+- Read [Priorities](/concepts/priorities) for effective prioritization

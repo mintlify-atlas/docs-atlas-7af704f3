@@ -1,0 +1,288 @@
+---
+title: "Dependency Management"
+description: "Track dependencies between issues, manage blockers, and organize work hierarchies"
+---
+
+## Understanding Dependencies
+
+Tracer supports four types of dependencies to model different relationships between issues:
+
+<CardGroup cols={2}>
+  <Card title="blocks" icon="ban">
+    Issue A blocks issue B - B cannot start until A is done
+  </Card>
+  <Card title="parent-child" icon="sitemap">
+    Issue A is a subtask of epic B - used for hierarchical organization
+  </Card>
+  <Card title="discovered-from" icon="magnifying-glass">
+    Issue A was discovered while working on B - tracks context
+  </Card>
+  <Card title="related" icon="link">
+    Issues are connected but don't block each other
+  </Card>
+</CardGroup>
+
+## Adding Dependencies
+
+<Steps>
+  <Step title="Basic blocking relationship">
+    When one issue blocks another:
+    
+    ```bash
+    # bd-2 is blocked by bd-1 (bd-1 must finish first)
+    tracer dep add bd-2 bd-1 --type blocks
+    ```
+    
+    Now `bd-2` won't show up in `tracer ready` until `bd-1` is closed.
+  </Step>
+
+  <Step title="Parent-child for epics">
+    Break down large features into subtasks:
+    
+    ```bash
+    # Create epic
+    tracer create "User authentication system" -t epic -p 0
+    # Creates bd-10
+    
+    # Create subtasks
+    tracer create "Design auth schema" -t task -p 1
+    # Creates bd-11
+    tracer dep add bd-11 bd-10 --type parent-child
+    
+    tracer create "Implement login endpoint" -t task -p 1
+    # Creates bd-12
+    tracer dep add bd-12 bd-10 --type parent-child
+    ```
+  </Step>
+
+  <Step title="Track discovered work">
+    Link issues you find during work back to their source:
+    
+    ```bash
+    # While working on bd-5, you discover a bug
+    tracer create "Fix null pointer in parser" -t bug -p 0
+    # Creates bd-15
+    
+    # Link it back to the original work
+    tracer dep add bd-15 bd-5 --type discovered-from
+    ```
+  </Step>
+</Steps>
+
+### Creating Issues with Dependencies
+
+You can specify dependencies inline when creating issues:
+
+```bash
+# Create an issue that's blocked by bd-1
+tracer create "Task B" -p 1 --deps "blocks:bd-1"
+
+# Multiple dependencies
+tracer create "Task C" -p 1 --deps "blocks:bd-1,blocks:bd-2"
+
+# Mix dependency types
+tracer create "Subtask" -p 2 --deps "parent-child:bd-10,blocks:bd-1"
+```
+
+## Viewing Dependencies
+
+### Dependency Tree
+
+Visualize the entire dependency hierarchy for an issue:
+
+```bash
+tracer dep tree bd-1
+```
+
+Example output:
+```
+Dependency tree for bd-1:
+
+bd-1 Implement auth system [P0, epic]
+  └─ bd-11 Design auth schema [P1, open]
+  └─ bd-12 Implement login endpoint [P1, open]
+    └─ bd-13 Add session management [P1, open]
+  └─ bd-14 Write auth tests [P2, open]
+```
+
+<Tip>
+Use `--max-depth` to limit how deep the tree goes:
+```bash
+tracer dep tree bd-1 --max-depth 3
+```
+</Tip>
+
+### Show Dependencies for an Issue
+
+View dependencies when looking at issue details:
+
+```bash
+tracer show bd-2
+```
+
+This displays all dependencies along with other issue information.
+
+### Finding Blocked Issues
+
+See all issues that are currently blocked:
+
+```bash
+tracer blocked
+```
+
+Example output:
+```
+⚠ Blocked: 2 issue(s)
+
+bd-12 Implement login endpoint [P1, task]
+  Status: open
+  ⚠ Blocked by: bd-11
+
+bd-15 Add OAuth support [P2, feature]
+  Status: open
+  ⚠ Blocked by: bd-12, bd-13
+```
+
+## Removing Dependencies
+
+If you added a dependency by mistake or work is no longer blocked:
+
+```bash
+tracer dep remove bd-2 bd-1
+```
+
+This removes the dependency from `bd-2` to `bd-1`.
+
+<Warning>
+Be careful when removing dependencies - make sure the issue is truly unblocked before removing blocking relationships.
+</Warning>
+
+## Detecting Dependency Cycles
+
+Cycles happen when issues block each other in a loop (A blocks B, B blocks C, C blocks A). This creates deadlock where no work can proceed.
+
+Detect cycles automatically:
+
+```bash
+tracer dep cycles
+```
+
+If cycles are found:
+```
+⚠ Found 1 cycle(s):
+
+Cycle 1:
+  → bd-5 Implement feature X
+  → bd-7 Add validation
+  → bd-9 Update schema
+  → bd-5 Implement feature X
+```
+
+If no cycles exist:
+```
+✓ No dependency cycles detected
+```
+
+<Note>
+Run `tracer dep cycles` regularly to catch circular dependencies before they cause problems.
+</Note>
+
+## Working with Epics
+
+Epics are large features broken down into smaller subtasks. Here's a complete workflow:
+
+<CodeGroup>
+```bash Create Epic Structure
+# Create the epic
+EPIC=$(tracer create "User auth system" -t epic -p 0 --json | jq -r '.id')
+
+# Create child tasks
+T1=$(tracer create "Design schema" -t task -p 1 --json | jq -r '.id')
+tracer dep add $T1 $EPIC --type parent-child
+
+T2=$(tracer create "Implement login" -t task -p 1 --json | jq -r '.id')
+tracer dep add $T2 $EPIC --type parent-child
+tracer dep add $T2 $T1 --type blocks  # T2 blocked by T1
+
+T3=$(tracer create "Add sessions" -t task -p 1 --json | jq -r '.id')
+tracer dep add $T3 $EPIC --type parent-child
+tracer dep add $T3 $T1 --type blocks  # T3 blocked by T1
+```
+
+```bash View Epic Structure
+# See the full epic breakdown
+tracer dep tree $EPIC
+
+# Check what's ready to work on
+tracer ready
+
+# Shows only T1 since T2 and T3 are blocked
+```
+</CodeGroup>
+
+## Best Practices
+
+<Tip>
+**Use `blocks` for true blockers** - only when work genuinely cannot proceed without the dependency being completed.
+</Tip>
+
+<Tip>
+**Use `parent-child` for organization** - group related tasks under epics to maintain structure.
+</Tip>
+
+<Tip>
+**Use `discovered-from` to preserve context** - when you find new work, link it back so you remember where it came from.
+</Tip>
+
+<Tip>
+**Use `related` for loose connections** - when issues are connected but don't have hard dependencies.
+</Tip>
+
+<Warning>
+**Avoid deep dependency chains** - long chains make it hard to understand what's blocking what. Try to keep trees shallow.
+</Warning>
+
+<Warning>
+**Check for cycles periodically** - run `tracer dep cycles` to catch circular dependencies early.
+</Warning>
+
+## Dependency JSON Output
+
+All dependency commands support `--json` for automation:
+
+```bash
+# Add dependency and get confirmation
+tracer dep add bd-2 bd-1 --type blocks --json
+
+# Get dependency tree as JSON
+tracer dep tree bd-1 --json
+
+# Detect cycles programmatically
+tracer dep cycles --json
+```
+
+Example JSON tree output:
+```json
+[
+  {
+    "issue": {
+      "id": "bd-1",
+      "title": "Implement auth system",
+      "status": "open",
+      "priority": 0
+    },
+    "depth": 0,
+    "truncated": false
+  },
+  {
+    "issue": {
+      "id": "bd-11",
+      "title": "Design schema",
+      "status": "open",
+      "priority": 1
+    },
+    "depth": 1,
+    "truncated": false
+  }
+]
+```

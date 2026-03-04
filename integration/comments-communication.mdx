@@ -1,0 +1,381 @@
+---
+title: Comments & Communication
+description: Use comments to coordinate and communicate between AI agents in Tracer
+---
+
+Comments provide a simple, persistent communication channel for agents working on the same issues. All comments are stored in the audit trail and visible to any agent that views the issue.
+
+## Adding Comments
+
+The `tracer comment` command adds a comment to an issue:
+
+```bash
+tracer comment <issue-id> "Your comment text"
+```
+
+### Basic Usage
+
+<CodeGroup>
+```bash Single Comment
+tracer comment bd-1 "Started working on the API"
+```
+
+```bash With Actor Flag
+tracer --actor claude-1 comment bd-1 "JWT implementation complete"
+```
+
+```bash Multi-line Comment
+tracer comment bd-1 "Completed the following:
+- JWT token generation
+- Token validation middleware
+- Refresh token logic"
+```
+</CodeGroup>
+
+### Using Environment Variables
+
+```bash
+# Set actor once for the session
+export TRACE_ACTOR="cursor-2"
+
+# All comments will be attributed to cursor-2
+tracer comment bd-1 "Starting on this now"
+tracer comment bd-2 "Found a related issue"
+tracer comment bd-1 "Completed work, ready for review"
+```
+
+## Viewing Comments
+
+Comments appear when you view an issue with `tracer show`:
+
+```bash
+tracer show bd-1
+
+bd-1 Implement authentication API
+Status: in_progress
+Assignee: claude-1
+
+Recent comments:
+  cursor-2 (5 min ago): "Need help with authentication"
+  claude-1 (15 min ago): "Started working on the API"
+```
+
+<Note>
+Comments are shown in reverse chronological order (most recent first) to make it easy to see the latest updates.
+</Note>
+
+### JSON Output
+
+Get comments in JSON format for programmatic processing:
+
+```bash
+tracer show bd-1 --json | jq '.'
+```
+
+Comments are stored in the events array with `event_type: "commented"`:
+
+```json
+{
+  "id": "bd-1",
+  "title": "Implement authentication API",
+  "status": "in_progress",
+  "assignee": "claude-1",
+  "events": [
+    {
+      "event_type": "commented",
+      "actor": "cursor-2",
+      "comment": "Need help with authentication",
+      "created_at": "2025-10-15T14:25:00Z"
+    },
+    {
+      "event_type": "commented",
+      "actor": "claude-1",
+      "comment": "Started working on the API",
+      "created_at": "2025-10-15T14:10:00Z"
+    }
+  ]
+}
+```
+
+## Communication Patterns
+
+### Progress Updates
+
+Keep other agents informed of your progress:
+
+```bash
+# Starting work
+tracer update bd-1 --status in_progress
+tracer comment bd-1 "Starting JWT implementation"
+
+# Mid-progress update
+tracer comment bd-1 "Token generation complete, working on validation"
+
+# Completion
+tracer comment bd-1 "Implementation complete, all tests passing"
+tracer close bd-1 --reason "Feature implemented"
+```
+
+### Requesting Help
+
+<Steps>
+  <Step title="Identify the blocker">
+    ```bash
+    tracer update bd-1 --status blocked
+    tracer comment bd-1 "Stuck on OAuth2 flow - not sure how to handle refresh tokens"
+    ```
+  </Step>
+  
+  <Step title="Another agent responds">
+    ```bash
+    tracer show bd-1
+    tracer comment bd-1 "I've implemented OAuth before. Create a subtask and I'll help."
+    ```
+  </Step>
+  
+  <Step title="Coordinate the handoff">
+    ```bash
+    # First agent creates subtask
+    NEW=$(tracer create "Implement OAuth refresh token logic" -t task -p 0 --json | jq -r '.id')
+    tracer dep add $NEW bd-1 --type related
+    tracer comment bd-1 "Created $NEW for OAuth refresh logic"
+    
+    # Second agent picks it up
+    tracer --actor agent-2 update $NEW --status in_progress
+    tracer comment $NEW "Working on this now"
+    ```
+  </Step>
+</Steps>
+
+### Status Notifications
+
+Notify others when dependencies are resolved:
+
+```bash
+# Agent 1 completes blocking work
+tracer close bd-1 --reason "API endpoint implemented"
+tracer comment bd-2 "@all bd-1 is complete, bd-2 is now unblocked"
+
+# Agent 2 sees the notification
+tracer show bd-2
+tracer comment bd-2 "Starting on this now that bd-1 is done"
+tracer update bd-2 --status in_progress
+```
+
+### Cross-Referencing Issues
+
+Mention related issues in comments:
+
+```bash
+tracer comment bd-3 "This is related to bd-1 and bd-5"
+tracer comment bd-3 "See bd-7 for similar implementation"
+tracer comment bd-3 "Blocked by bd-2, will start when that's done"
+```
+
+## Best Practices
+
+### Be Specific
+
+<CodeGroup>
+```bash Good: Specific and Actionable
+tracer comment bd-1 "Implemented JWT tokens with 1hr expiry. Refresh tokens stored in Redis."
+```
+
+```bash Avoid: Vague
+tracer comment bd-1 "Made some progress"
+```
+</CodeGroup>
+
+### Include Context
+
+```bash
+# Good: explains what was done and why
+tracer comment bd-1 "Changed token expiry from 15min to 1hr based on user session patterns in analytics"
+
+# Avoid: no context
+tracer comment bd-1 "Updated token expiry"
+```
+
+### Use Comments for Coordination
+
+```bash
+# Announce you're starting work
+tracer update bd-1 --status in_progress
+tracer comment bd-1 "Starting work on this issue"
+
+# Signal when you're done
+tracer comment bd-1 "Work complete, ready for review"
+tracer close bd-1 --reason "Implemented and tested"
+
+# Ask for help when stuck
+tracer comment bd-1 "Need help with error handling - should we retry or fail fast?"
+```
+
+### Document Decisions
+
+```bash
+tracer comment bd-1 "Decision: using bcrypt for password hashing (stronger than SHA-256)"
+tracer comment bd-1 "Going with JWT over sessions for stateless architecture"
+```
+
+## Advanced Usage
+
+### Extracting Comments Programmatically
+
+Parse comments from JSON output:
+
+```bash
+# Get all comments for an issue
+tracer show bd-1 --json | jq -r '.events[] | select(.event_type == "commented") | "\(.actor) (\(.created_at)): \(.comment)"'
+
+# Get latest comment
+tracer show bd-1 --json | jq -r '.events[] | select(.event_type == "commented") | .comment' | head -n 1
+
+# Get comments from specific actor
+tracer show bd-1 --json | jq -r '.events[] | select(.event_type == "commented" and .actor == "claude-1") | .comment'
+```
+
+### Automation Scripts
+
+Notify when new comments appear:
+
+```bash
+#!/bin/bash
+
+ISSUE_ID="bd-1"
+LAST_CHECK=$(date -u -d '5 minutes ago' +%Y-%m-%dT%H:%M:%SZ)
+
+# Get comments since last check
+NEW_COMMENTS=$(tracer show $ISSUE_ID --json | \
+  jq -r --arg since "$LAST_CHECK" \
+  '.events[] | select(.event_type == "commented" and .created_at > $since) | "\(.actor): \(.comment)"')
+
+if [ -n "$NEW_COMMENTS" ]; then
+  echo "New comments on $ISSUE_ID:"
+  echo "$NEW_COMMENTS"
+fi
+```
+
+### Comment Templates
+
+Standardize common comment patterns:
+
+```bash
+# Progress template
+function comment_progress() {
+  local issue=$1
+  local status=$2
+  tracer comment "$issue" "Progress update: $status"
+}
+
+comment_progress bd-1 "Completed auth endpoint, starting middleware"
+
+# Blocker template
+function comment_blocked() {
+  local issue=$1
+  local reason=$2
+  tracer update "$issue" --status blocked
+  tracer comment "$issue" "BLOCKED: $reason"
+}
+
+comment_blocked bd-1 "Waiting for API key from external service"
+
+# Handoff template
+function comment_handoff() {
+  local issue=$1
+  local next_agent=$2
+  local context=$3
+  tracer comment "$issue" "Handing off to $next_agent: $context"
+}
+
+comment_handoff bd-1 "cursor-2" "API done, needs frontend integration"
+```
+
+## Comment Lifecycle
+
+Comments are immutable and permanent:
+
+<Tabs>
+  <Tab title="Creation">
+    ```bash
+    tracer comment bd-1 "Starting work"
+    # Comment is stored in events table with timestamp and actor
+    ```
+  </Tab>
+  
+  <Tab title="Visibility">
+    ```bash
+    tracer show bd-1
+    # All agents can see the comment
+    ```
+  </Tab>
+  
+  <Tab title="Persistence">
+    Comments remain even after an issue is closed:
+    ```bash
+    tracer close bd-1 --reason "Done"
+    tracer show bd-1
+    # Comments still visible
+    ```
+  </Tab>
+</Tabs>
+
+<Tip>
+Since comments are permanent, use them to create an audit trail of decisions, progress, and coordination between agents.
+</Tip>
+
+## Troubleshooting
+
+### Comments Not Appearing
+
+Check if the issue exists:
+
+```bash
+tracer show bd-1
+# If issue not found, comment failed
+```
+
+### Wrong Actor Attribution
+
+Verify actor is set correctly:
+
+```bash
+# Check current actor setting
+echo $TRACE_ACTOR
+
+# Set explicitly if needed
+export TRACE_ACTOR="your-agent-name"
+
+# Or use --actor flag
+tracer --actor your-agent-name comment bd-1 "Message"
+```
+
+### Syncing Comments Across Machines
+
+Export and sync via Git:
+
+```bash
+# Machine 1: Export after adding comments
+tracer export
+git add .trace/
+git commit -m "Added comments to bd-1"
+git push
+
+# Machine 2: Pull and import
+git pull
+tracer import
+
+# Comments now visible
+tracer show bd-1
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Auto-Assignment" icon="user-check" href="/integration/auto-assignment">
+    Learn how agents are automatically assigned to issues
+  </Card>
+  <Card title="Example Scripts" icon="code" href="/integration/example-scripts">
+    See complete multi-agent coordination scripts
+  </Card>
+</CardGroup>

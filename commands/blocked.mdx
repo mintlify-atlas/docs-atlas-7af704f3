@@ -1,0 +1,98 @@
+---
+title: "blocked"
+description: "List issues that are blocked by dependencies"
+---
+
+## Syntax
+
+```bash
+tracer blocked
+```
+
+## Options
+
+<ParamField path="--json" type="boolean">
+  Output result in JSON format
+</ParamField>
+
+## Examples
+
+<CodeGroup>
+
+```bash Basic Usage
+# Show all blocked issues
+tracer blocked
+```
+
+```bash JSON Output
+# Get structured JSON output
+tracer blocked --json
+```
+
+</CodeGroup>
+
+## Output
+
+### Human-Readable Format
+
+```
+⚠ Blocked: 2 issue(s)
+
+bd-3 Create login endpoint [P1, task]
+  Status: open
+  Assignee: bob@example.com
+  Created: 2025-03-04 10:05 | Updated: 2025-03-04 10:05
+  ⚠ Blocked by: bd-2, bd-7
+
+bd-4 Add session management [P1, task]
+  Status: blocked
+  Created: 2025-03-04 10:10 | Updated: 2025-03-04 11:30
+  ⚠ Blocked by: bd-2
+```
+
+### Human-Readable Format (No Blocked Issues)
+
+```
+No blocked issues found
+```
+
+### JSON Format
+
+```json
+[
+  {
+    "id": "bd-3",
+    "title": "Create login endpoint",
+    "description": "",
+    "status": "open",
+    "priority": 1,
+    "issue_type": "task",
+    "assignee": "bob@example.com",
+    "created_at": "2025-03-04T10:05:00Z",
+    "updated_at": "2025-03-04T10:05:00Z",
+    "blocked_by_count": 2,
+    "blocked_by": ["bd-2", "bd-7"]
+  },
+  {
+    "id": "bd-4",
+    "title": "Add session management",
+    "description": "",
+    "status": "blocked",
+    "priority": 1,
+    "issue_type": "task",
+    "assignee": "",
+    "created_at": "2025-03-04T10:10:00Z",
+    "updated_at": "2025-03-04T11:30:00Z",
+    "blocked_by_count": 1,
+    "blocked_by": ["bd-2"]
+  }
+]
+```
+
+<Note>
+  An issue is considered blocked if it has dependencies on other issues that are not yet closed.
+</Note>
+
+<Tip>
+  Use `tracer dep tree <issue_id>` to see the full dependency tree and understand why an issue is blocked.
+</Tip>

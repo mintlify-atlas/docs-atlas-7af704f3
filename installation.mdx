@@ -1,0 +1,296 @@
+---
+title: Installation
+description: Install Tracer on macOS, Linux, or Windows using cargo or from source
+---
+
+## Prerequisites
+
+Tracer requires the Rust toolchain. If you don't have it installed:
+
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
+
+After installation, ensure `~/.cargo/bin` is in your PATH.
+
+## Quick Install (Recommended)
+
+<CodeGroup>
+```bash Cargo Install
+cargo install trace-tracker
+```
+
+```bash From Git
+cargo install --git https://github.com/Abil-Shrestha/tracer
+```
+
+```bash From Source
+git clone https://github.com/Abil-Shrestha/tracer.git
+cd tracer
+cargo install --path .
+```
+</CodeGroup>
+
+The `tracer` binary will be installed to `~/.cargo/bin/`.
+
+<Note>
+  Tracer uses bundled SQLite, so no external database dependencies are required.
+</Note>
+
+## Platform-Specific Instructions
+
+<Tabs>
+  <Tab title="macOS">
+    ### Option 1: From Git (Current)
+    
+    ```bash
+    # Install Rust if needed
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+    
+    # Install tracer
+    cargo install --git https://github.com/Abil-Shrestha/tracer
+    ```
+    
+    ### Option 2: Homebrew (Coming Soon)
+    
+    ```bash
+    brew tap Abil-Shrestha/tracer
+    brew install tracer
+    ```
+  </Tab>
+  
+  <Tab title="Linux">
+    ### Ubuntu/Debian
+    
+    ```bash
+    # Install build dependencies
+    sudo apt update
+    sudo apt install build-essential pkg-config libssl-dev
+    
+    # Install Rust
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+    
+    # Install tracer
+    cargo install --git https://github.com/Abil-Shrestha/tracer
+    ```
+    
+    ### Arch Linux (Coming Soon)
+    
+    ```bash
+    yay -S tracer-git
+    ```
+    
+    ### From Binary Release
+    
+    ```bash
+    # Download from releases
+    wget https://github.com/Abil-Shrestha/tracer/releases/latest/download/tracer-linux-amd64
+    
+    # Make executable
+    chmod +x tracer-linux-amd64
+    
+    # Move to PATH
+    sudo mv tracer-linux-amd64 /usr/local/bin/tracer
+    ```
+  </Tab>
+  
+  <Tab title="Windows">
+    ### Option 1: From Source
+    
+    ```powershell
+    # Install Rust from https://rustup.rs/
+    
+    # Install tracer
+    cargo install --git https://github.com/Abil-Shrestha/tracer
+    ```
+    
+    ### Option 2: From Binary
+    
+    1. Download the latest Windows release from [GitHub Releases](https://github.com/Abil-Shrestha/tracer/releases/latest)
+    2. Extract `tracer.exe` to a directory in your PATH
+    3. Or run directly:
+    
+    ```powershell
+    .\tracer.exe --help
+    ```
+    
+    <Warning>
+      Windows requires Visual C++ build tools. Install from [Visual Studio Downloads](https://visualstudio.microsoft.com/downloads/) and select "Desktop development with C++".
+    </Warning>
+  </Tab>
+</Tabs>
+
+## Verify Installation
+
+After installation, verify Tracer is working correctly:
+
+<Steps>
+  <Step title="Check version">
+    ```bash
+    tracer --version
+    ```
+    
+    Should output: `tracer 0.2.0`
+  </Step>
+  
+  <Step title="View help">
+    ```bash
+    tracer --help
+    ```
+    
+    Should display available commands and options.
+  </Step>
+  
+  <Step title="Test initialization">
+    ```bash
+    mkdir test-project
+    cd test-project
+    tracer init
+    ```
+    
+    Should create `.trace/bd.db` and `.trace/issues.jsonl`
+  </Step>
+</Steps>
+
+## Updating Tracer
+
+<CodeGroup>
+```bash Cargo Install
+cargo install trace-tracker --force
+```
+
+```bash From Source
+cd tracer
+git pull
+cargo install --path . --force
+```
+
+```bash Homebrew
+brew upgrade tracer
+```
+</CodeGroup>
+
+## Uninstalling
+
+To remove Tracer from your system:
+
+```bash
+cargo uninstall tracer
+```
+
+To also remove project databases, delete the `.trace` directories:
+
+```bash
+find . -name ".trace" -type d -exec rm -rf {} +
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Command not found">
+    Ensure `~/.cargo/bin` is in your PATH:
+    
+    ```bash
+    # Add to ~/.bashrc or ~/.zshrc
+    export PATH="$HOME/.cargo/bin:$PATH"
+    ```
+    
+    Then reload your shell:
+    
+    ```bash
+    source ~/.bashrc  # or source ~/.zshrc
+    ```
+  </Accordion>
+  
+  <Accordion title="Build fails on Windows">
+    Install Visual C++ build tools:
+    
+    1. Download from [Visual Studio Downloads](https://visualstudio.microsoft.com/downloads/)
+    2. Run the installer
+    3. Select "Desktop development with C++"
+    4. Complete installation and retry `cargo install`
+  </Accordion>
+  
+  <Accordion title="SQLite errors">
+    Tracer uses bundled SQLite, so external dependencies aren't needed. If you see SQLite errors:
+    
+    ```bash
+    # Clean and rebuild
+    cargo clean
+    cargo build --release
+    ```
+    
+    If the error persists, check that you have write permissions in the project directory.
+  </Accordion>
+  
+  <Accordion title="Permission denied on Linux">
+    If you get permission errors when installing to `/usr/local/bin`:
+    
+    ```bash
+    # Option 1: Use sudo
+    sudo mv tracer /usr/local/bin/
+    
+    # Option 2: Install to user directory
+    mkdir -p ~/.local/bin
+    mv tracer ~/.local/bin/
+    export PATH="$HOME/.local/bin:$PATH"
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Development Installation
+
+For contributing to Tracer or testing unreleased features:
+
+```bash
+# Clone repository
+git clone https://github.com/Abil-Shrestha/tracer.git
+cd tracer
+
+# Build in debug mode
+cargo build
+
+# Run tests
+cargo test
+
+# Run from source (useful for development)
+cargo run -- --help
+cargo run -- init
+cargo run -- create "Test issue"
+
+# Build optimized release binary
+cargo build --release
+
+# Binary will be in target/release/tracer
+./target/release/tracer --version
+```
+
+<Tip>
+  The development build includes debug symbols and is slower. Use `cargo build --release` for production use.
+</Tip>
+
+## Binary Aliases
+
+Tracer provides two binary names for convenience:
+
+- `tracer` - Full command name
+- `tr` - Short alias for faster typing
+
+Both are identical and can be used interchangeably:
+
+```bash
+tracer ready
+tr ready  # Same command
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Initialize your first project and create issues
+  </Card>
+  
+  <Card title="Introduction" icon="book" href="/introduction">
+    Learn more about Tracer's features and use cases
+  </Card>
+</CardGroup>

@@ -1,0 +1,373 @@
+---
+title: "Querying & Filtering"
+description: "Filter, search, and query issues with powerful filtering options and JSON output"
+---
+
+## Basic Listing
+
+List all issues in your tracker:
+
+```bash
+tracer list
+```
+
+This shows all issues with their status, priority, and type.
+
+## Filtering by Status
+
+Filter issues by their current status:
+
+<CodeGroup>
+```bash Open Issues
+tracer list --status open
+```
+
+```bash In Progress
+tracer list --status in_progress
+```
+
+```bash Blocked
+tracer list --status blocked
+```
+
+```bash Closed
+tracer list --status closed
+```
+</CodeGroup>
+
+### Finding Ready Work
+
+The `ready` command is a special filtered view showing only issues that:
+- Have status `open`
+- Have no blocking dependencies
+- Are available to start immediately
+
+```bash
+tracer ready
+```
+
+This is more useful than `tracer list --status open` because it excludes blocked issues.
+
+<Tip>
+Use `tracer ready` at the start of every session to find what you can work on right now.
+</Tip>
+
+## Filtering by Priority
+
+Find issues by priority level (0 = highest, 4 = lowest):
+
+```bash
+# Critical issues only
+tracer list --priority 0
+
+# High priority
+tracer list --priority 1
+
+# Filter ready work by priority
+tracer ready --priority 0
+```
+
+## Filtering by Issue Type
+
+Filter by the kind of work:
+
+<CodeGroup>
+```bash Features
+tracer list --issue-type feature
+```
+
+```bash Bugs
+tracer list --issue-type bug
+```
+
+```bash Tasks
+tracer list --issue-type task
+```
+
+```bash Epics
+tracer list --issue-type epic
+```
+</CodeGroup>
+
+Combine with status filters:
+
+```bash
+# All open bugs
+tracer list --status open --issue-type bug
+```
+
+## Filtering by Assignee
+
+Find work assigned to specific people or agents:
+
+```bash
+# Issues assigned to specific agent
+tracer list --assignee agent-1
+
+# Ready work for specific assignee
+tracer ready --assignee agent-2
+```
+
+<Note>
+Assignees are automatically set when you update an issue to `in_progress`. You can also set them explicitly:
+```bash
+tracer update bd-1 --assignee "my-agent"
+```
+</Note>
+
+## Filtering by Labels
+
+Filter issues that have specific labels:
+
+```bash
+# Issues with "frontend" label
+tracer list --labels frontend
+
+# Multiple labels (AND condition)
+tracer list --labels frontend,urgent
+```
+
+Add labels to issues:
+
+```bash
+# When creating
+tracer create "Update UI" -t feature --labels frontend,ui
+
+# You can also add labels after creation via the API
+```
+
+## Limiting Results
+
+Limit how many results are returned:
+
+```bash
+# Show top 5 ready issues
+tracer ready --limit 5
+
+# Show 10 most recent issues
+tracer list --limit 10
+```
+
+<Tip>
+Combine `--limit` with priority filters to get the most important work:
+```bash
+tracer ready --priority 0 --limit 3
+```
+</Tip>
+
+## Combining Filters
+
+All filters can be combined for powerful queries:
+
+<CodeGroup>
+```bash High Priority Bugs
+# Open bugs with priority 0 or 1
+tracer list --status open --issue-type bug --priority 0
+tracer list --status open --issue-type bug --priority 1
+```
+
+```bash Agent Work Queue
+# Top 5 ready items for specific agent
+tracer ready --assignee agent-1 --limit 5
+```
+
+```bash Sprint Planning
+# All high priority features
+tracer list --issue-type feature --priority 1 --limit 10
+```
+</CodeGroup>
+
+## JSON Output
+
+Every query command supports `--json` for programmatic access:
+
+```bash
+# Get ready work as JSON
+tracer ready --json
+
+# Filter and parse with jq
+tracer list --status open --json | jq '.[].id'
+
+# Get issue count
+tracer list --status open --json | jq 'length'
+```
+
+### Example JSON Response
+
+```json
+[
+  {
+    "id": "bd-1",
+    "title": "Implement user authentication",
+    "description": "",
+    "status": "open",
+    "priority": 1,
+    "issue_type": "feature",
+    "assignee": "",
+    "created_at": "2025-10-15T10:00:00Z",
+    "updated_at": "2025-10-15T10:00:00Z",
+    "closed_at": null
+  },
+  {
+    "id": "bd-2",
+    "title": "Fix validation bug",
+    "description": "",
+    "status": "open",
+    "priority": 0,
+    "issue_type": "bug",
+    "assignee": "agent-1",
+    "created_at": "2025-10-15T11:00:00Z",
+    "updated_at": "2025-10-15T11:00:00Z",
+    "closed_at": null
+  }
+]
+```
+
+## Sorting Results
+
+Results are automatically sorted by:
+1. **Priority** (0 first, 4 last)
+2. **Creation date** (newest first)
+
+This ensures the most important and recent work appears first.
+
+## Finding Blocked Issues
+
+See all issues that cannot proceed:
+
+```bash
+tracer blocked
+```
+
+This shows each blocked issue along with what's blocking it:
+
+```
+⚠ Blocked: 2 issue(s)
+
+bd-12 Implement login endpoint [P1, task]
+  Status: open
+  ⚠ Blocked by: bd-11
+
+bd-15 Add OAuth support [P2, feature]
+  Status: open
+  ⚠ Blocked by: bd-12, bd-13
+```
+
+<Note>
+Use `tracer blocked --json` to get blocked issues programmatically with their blocking dependencies.
+</Note>
+
+## Viewing Statistics
+
+Get aggregate stats across all issues:
+
+```bash
+tracer stats
+```
+
+Shows:
+- Total issue counts by status
+- Number of ready issues
+- Average lead time
+
+```bash
+# Get stats as JSON for dashboards
+tracer stats --json
+```
+
+## Common Query Patterns
+
+<Accordion title="Find critical work">
+```bash
+# Critical bugs and high priority features
+tracer list --priority 0 --issue-type bug
+tracer list --priority 1 --issue-type feature
+```
+</Accordion>
+
+<Accordion title="Sprint planning queries">
+```bash
+# All open work
+tracer list --status open
+
+# Ready to start this sprint
+tracer ready --limit 20
+
+# In progress work
+tracer list --status in_progress
+```
+</Accordion>
+
+<Accordion title="Agent work queue">
+```bash
+# What agent-1 is working on
+tracer list --assignee agent-1 --status in_progress
+
+# What's available for agent-2
+tracer ready --assignee agent-2
+```
+</Accordion>
+
+<Accordion title="Health check queries">
+```bash
+# Any blocked issues?
+tracer blocked
+
+# Any dependency cycles?
+tracer dep cycles
+
+# Overall statistics
+tracer stats
+```
+</Accordion>
+
+## Programmatic Parsing Examples
+
+Using Tracer with shell scripting and jq:
+
+<CodeGroup>
+```bash Get First Ready Issue
+# Find the highest priority ready work
+ISSUE_ID=$(tracer ready --limit 1 --json | jq -r '.[0].id')
+echo "Working on: $ISSUE_ID"
+```
+
+```bash Count Open Issues
+# How many issues are open?
+OPEN_COUNT=$(tracer list --status open --json | jq 'length')
+echo "Open issues: $OPEN_COUNT"
+```
+
+```bash Filter by Multiple Criteria
+# Get all P0 bugs assigned to me
+tracer list --priority 0 --issue-type bug --json | \
+  jq '.[] | select(.assignee == "my-agent")'
+```
+
+```bash Extract Specific Fields
+# Get just IDs and titles
+tracer list --status open --json | \
+  jq -r '.[] | "\(.id): \(.title)"'
+```
+</CodeGroup>
+
+## Best Practices
+
+<Tip>
+**Use `tracer ready` instead of `tracer list --status open`** - it automatically filters out blocked issues.
+</Tip>
+
+<Tip>
+**Combine `--limit` with priority filters** to focus on the most important work:
+```bash
+tracer ready --priority 0 --limit 5
+```
+</Tip>
+
+<Tip>
+**Use JSON output for automation** - parse with `jq` or other tools for scripting and integration.
+</Tip>
+
+<Warning>
+Filters are combined with AND logic - all conditions must match. Be specific but not too restrictive.
+</Warning>

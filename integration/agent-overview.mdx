@@ -1,0 +1,158 @@
+---
+title: "AI Agent Integration Overview"
+description: "Learn why and how to integrate AI agents with Tracer for better task management and long-horizon work"
+---
+
+## Why Use Tracer for AI Agents?
+
+Tracer is designed to help AI agents (Claude, GPT, Cursor, etc.) maintain context, coordinate work, and organize tasks more effectively than traditional markdown TODOs.
+
+### For Long-Horizon Tasks
+
+Tracer helps maintain context across sessions:
+
+- **Persistent work lists** - Your tasks persist between conversations
+- **Dependency tracking** - Never forget what's blocking what
+- **Discovered work tracking** - Issues found during work don't get lost
+
+### For Multi-Agent Coordination
+
+Multiple agents can work on the same project:
+
+- **Git-based sync** - Database syncs across machines via Git
+- **Ready work detection** - Prevents conflicts by showing unblocked work
+- **Audit trail** - Track who did what and when
+
+### For Better Organization
+
+Move beyond markdown TODOs:
+
+- **Proper epics and subtasks** - Organize complex features hierarchically
+- **Dependency tracking** - Model blocking relationships explicitly
+- **Priority management** - Focus on what matters most
+- **Status updates** - Track progress in real-time
+
+<Note>
+Tracer is particularly valuable for agents working on projects that span multiple sessions or involve complex dependency chains.
+</Note>
+
+## Core Workflow Overview
+
+AI agents should follow this workflow when using Tracer:
+
+<Steps>
+  <Step title="Find Ready Work">
+    Check for unblocked tasks at the start of each session using `tracer ready --json`
+  </Step>
+  
+  <Step title="Claim and Start">
+    Update the issue status to `in_progress` to claim the work
+  </Step>
+  
+  <Step title="Create Issues During Work">
+    File new issues as you discover them, linking them back to the parent task
+  </Step>
+  
+  <Step title="Add Dependencies">
+    Model blocking relationships and epic structures as you discover them
+  </Step>
+  
+  <Step title="Complete Work">
+    Close issues with meaningful completion messages
+  </Step>
+  
+  <Step title="Check Status">
+    Review overall progress with `tracer stats`
+  </Step>
+</Steps>
+
+## Quick Start
+
+<CodeGroup>
+```bash Initialize Tracer
+# Initialize tracer in your project
+tracer init
+```
+
+```bash Create First Issue
+# Create your first issue
+tracer create "Implement user authentication" -p 1 -t feature
+```
+
+```bash Find Ready Work
+# See what's ready to work on
+tracer ready --json
+```
+</CodeGroup>
+
+## Key Benefits
+
+<Accordion title="Context Preservation">
+Unlike conversation-based task lists, Tracer persists your work across sessions. When you return to a project, `tracer ready` immediately shows you what's unblocked and ready to work on.
+</Accordion>
+
+<Accordion title="Dependency Intelligence">
+Tracer prevents you from starting work that's blocked by other tasks. The dependency system ensures you always work on tasks that can actually be completed.
+</Accordion>
+
+<Accordion title="Discovery Tracking">
+When you discover bugs or additional work while implementing a feature, Tracer lets you file them immediately and link them back to the parent task using `discovered-from` relationships.
+</Accordion>
+
+<Accordion title="Team Coordination">
+Multiple agents (or humans) can work on the same Tracer database. Git syncing ensures everyone sees the same view of the work, and the ready work algorithm prevents conflicts.
+</Accordion>
+
+## When to Use Tracer
+
+<Tip>
+**Use Tracer when:**
+- Working on projects that span multiple sessions
+- Building features with complex dependencies
+- Coordinating with other agents or humans
+- Managing long-horizon tasks with many subtasks
+</Tip>
+
+<Note>
+**Consider alternatives when:**
+- Working on simple, single-session tasks
+- The project has no dependencies or complexity
+- You need a lightweight TODO list only
+</Note>
+
+## JSON-First Design
+
+All Tracer commands support `--json` output for programmatic parsing:
+
+```bash
+# Get ready work in JSON format
+tracer ready --json
+
+# Create issue and capture ID
+NEW_ID=$(tracer create "Fix bug" -t bug --json | jq -r '.id')
+
+# Check stats programmatically
+tracer stats --json
+```
+
+This makes it easy to integrate Tracer into agent workflows and scripts.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Agent Workflow" icon="diagram-project" href="/integration/agent-workflow">
+    Learn the detailed workflow from finding work to completion
+  </Card>
+  
+  <Card title="JSON Output" icon="code" href="/integration/json-output">
+    Understand JSON formats for all commands
+  </Card>
+  
+  <Card title="Best Practices" icon="star" href="/integration/best-practices">
+    Follow proven patterns for agent integration
+  </Card>
+  
+  <Card title="CLI Reference" icon="terminal" href="/cli/overview">
+    Complete command reference
+  </Card>
+</CardGroup>

@@ -1,0 +1,63 @@
+---
+title: tracer init
+description: Initialize a new tracer database in your project
+---
+
+## Syntax
+
+```bash
+tracer init [OPTIONS]
+```
+
+## Description
+
+Initializes a new tracer database in the current directory. This creates a `.trace/` directory with a SQLite database and JSONL file for issue tracking.
+
+## Options
+
+<ParamField path="--prefix" type="string" default="bd">
+  ID prefix for issues. All issue IDs will start with this prefix (e.g., `bd-1`, `bd-2`).
+</ParamField>
+
+<ParamField path="--path" type="string">
+  Custom database path. If not specified, creates `.trace/<prefix>.db` in the current directory.
+</ParamField>
+
+## Examples
+
+<CodeGroup>
+
+```bash Default initialization
+tracer init
+```
+
+```bash Custom prefix
+tracer init --prefix myapp
+```
+
+```bash Custom database path
+tracer init --prefix proj --path /path/to/custom.db
+```
+
+</CodeGroup>
+
+## Output
+
+```
+✓ Initialized tracer database at .trace/bd.db
+  Prefix: bd
+  JSONL: .trace/issues.jsonl
+
+Next steps:
+  1. Create your first issue: tracer create "My first task"
+  2. See ready work: tracer ready
+  3. Add to git: git add .trace/issues.jsonl
+```
+
+<Note>
+The `.trace/` directory contains both a SQLite database (for querying) and a JSONL file (for git-friendly version control). Always commit the JSONL file to track issue history.
+</Note>
+
+<Tip>
+Use a short, memorable prefix that relates to your project. Common examples: `api`, `web`, `cli`, `core`.
+</Tip>

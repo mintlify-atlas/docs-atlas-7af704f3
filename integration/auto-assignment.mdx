@@ -1,0 +1,423 @@
+---
+title: Auto-Assignment
+description: Understand how Tracer automatically assigns agents to issues when they start work
+---
+
+Tracer automatically assigns agents to issues when they change the status to `in_progress`. This provides instant visibility into who's working on what without requiring manual assignee management.
+
+## How Auto-Assignment Works
+
+When an agent updates an issue status to `in_progress`, Tracer automatically sets the assignee:
+
+```bash
+# Agent starts work
+tracer --actor claude-1 update bd-1 --status in_progress
+
+# Now claude-1 is automatically assigned to bd-1
+tracer show bd-1
+# Assignee: claude-1
+```
+
+<Note>
+Auto-assignment only happens when the issue has no existing assignee. If an issue is already assigned, the assignee won't change automatically.
+</Note>
+
+## Auto-Assignment Logic
+
+The assignment logic follows this flow:
+
+<Steps>
+  <Step title="Status changes to in_progress">
+    An agent updates an issue with `--status in_progress`
+  </Step>
+  
+  <Step title="Check current assignee">
+    Tracer checks if the issue already has an assignee
+  </Step>
+  
+  <Step title="Assign if empty">
+    If `assignee` field is empty, set it to the current actor
+  </Step>
+  
+  <Step title="Keep if set">
+    If assignee is already set, don't change it
+  </Step>
+</Steps>
+
+### Source Code Reference
+
+From `src/cli/update.rs:60-67`:
+
+```rust
+// Auto-set assignee if status changes to in_progress and no assignee specified
+let assignee = if args.assignee.is_some() {
+    args.assignee
+} else if args.status == Some(Status::InProgress) && issue.assignee.is_empty() {
+    Some(actor.to_string())
+} else {
+    None
+};
+```
+
+## Actor Identification
+
+The actor is determined in order of precedence:
+
+<Tabs>
+  <Tab title="1. --actor Flag">
+    Highest priority - explicitly specified:
+    ```bash
+    tracer --actor claude-1 update bd-1 --status in_progress
+    # Assignee: claude-1
+    ```
+  </Tab>
+  
+  <Tab title="2. TRACE_ACTOR Environment Variable">
+    Set once for the session:
+    ```bash
+    export TRACE_ACTOR="cursor-2"
+    tracer update bd-1 --status in_progress
+    # Assignee: cursor-2
+    ```
+  </Tab>
+  
+  <Tab title="3. USER Environment Variable">
+    Fallback to system user:
+    ```bash
+    # If TRACE_ACTOR not set, uses $USER
+    tracer update bd-1 --status in_progress
+    # Assignee: <value of $USER>
+    ```
+  </Tab>
+</Tabs>
+
+<Tip>
+For multi-agent environments, always set `TRACE_ACTOR` explicitly to avoid all agents using the same `$USER` value.
+</Tip>
+
+## Manual Assignment
+
+You can also manually assign issues without changing status:
+
+```bash
+# Assign directly
+tracer update bd-1 --assignee cursor-2
+
+# Or combine with status change
+tracer update bd-1 --status in_progress --assignee gpt-4
+```
+
+Manual assignment takes precedence over auto-assignment.
+
+## Viewing Assignees
+
+Assignees are visible in multiple commands:
+
+### In Issue Lists
+
+```bash
+tracer list --status in_progress
+
+bd-1 Implement auth [P1, in_progress, Assignee: claude-1]
+bd-2 Write tests [P1, in_progress, Assignee: cursor-2]
+bd-3 Fix bug [P0, in_progress, Assignee: gpt-4]
+```
+
+### In Issue Details
+
+```bash
+tracer show bd-1
+
+bd-1 Implement authentication API
+Status: in_progress
+Assignee: claude-1
+
+Recent comments:
+  claude-1 (15 min ago): "Started working on the API"
+```
+
+### In JSON Output
+
+```bash
+tracer show bd-1 --json
+```
+
+```json
+{
+  "id": "bd-1",
+  "title": "Implement authentication API",
+  "status": "in_progress",
+  "assignee": "claude-1",
+  "priority": 1,
+  "issue_type": "feature",
+  "created_at": "2025-10-15T10:00:00Z",
+  "updated_at": "2025-10-15T10:30:00Z"
+}
+```
+
+## Filtering by Assignee
+
+Find all issues assigned to a specific agent:
+
+```bash
+# Human-readable output
+tracer list --assignee claude-1
+
+# JSON for scripting
+tracer list --assignee claude-1 --json
+```
+
+### Finding Unassigned Work
+
+```bash
+# Issues with no assignee
+tracer list --status open --json | jq '.[] | select(.assignee == "")'
+
+# Ready work that's unassigned
+tracer ready --json | jq '.[] | select(.assignee == "")'
+```
+
+## Assignment Patterns
+
+### Self-Assignment on Start
+
+The most common pattern - agent claims work:
+
+```bash
+export TRACE_ACTOR="claude-1"
+
+# Find ready work
+WORK=$(tracer ready --limit 1 --json)
+ISSUE_ID=$(echo $WORK | jq -r '.[0].id')
+
+# Claim it (auto-assigns)
+tracer update $ISSUE_ID --status in_progress
+
+# Verify assignment
+tracer show $ISSUE_ID | grep Assignee
+# Assignee: claude-1
+```
+
+### Pre-Assignment
+
+Assign work to an agent before they start:
+
+```bash
+# Coordinator assigns work
+tracer update bd-1 --assignee claude-1
+tracer update bd-2 --assignee cursor-2
+tracer comment bd-1 "@claude-1 please start on this"
+tracer comment bd-2 "@cursor-2 this is ready for you"
+
+# Agents start work
+export TRACE_ACTOR="claude-1"
+tracer list --assignee claude-1
+tracer update bd-1 --status in_progress
+```
+
+### Reassignment
+
+Change assignee when handing off work:
+
+```bash
+# Agent 1 hits a blocker
+export TRACE_ACTOR="claude-1"
+tracer update bd-1 --status blocked
+tracer comment bd-1 "Blocked on OAuth, need help"
+
+# Reassign to agent 2
+tracer update bd-1 --assignee cursor-2
+tracer comment bd-1 "@cursor-2 can you take over the OAuth integration?"
+
+# Agent 2 picks it up
+export TRACE_ACTOR="cursor-2"
+tracer update bd-1 --status in_progress
+tracer comment bd-1 "Starting on OAuth integration"
+```
+
+## Multi-Agent Coordination
+
+Assignees enable agents to see who's working on what:
+
+<Accordion title="Complete Multi-Agent Example">
+  ```bash
+  # Initialize and create issues
+  tracer init
+  tracer create "Implement API" -p 1 -t feature
+  tracer create "Write tests" -p 1 -t task
+  tracer create "Update docs" -p 2 -t task
+  
+  # Three agents check for work
+  export TRACE_ACTOR="claude-1"
+  tracer ready --limit 1
+  # Sees bd-1, bd-2, bd-3
+  
+  export TRACE_ACTOR="cursor-2"
+  tracer ready --limit 1
+  # Sees bd-1, bd-2, bd-3
+  
+  export TRACE_ACTOR="gpt-4"
+  tracer ready --limit 1
+  # Sees bd-1, bd-2, bd-3
+  
+  # Agent 1 claims bd-1
+  export TRACE_ACTOR="claude-1"
+  tracer update bd-1 --status in_progress
+  # Auto-assigned to claude-1
+  
+  # Agent 2 checks and sees bd-1 is taken
+  export TRACE_ACTOR="cursor-2"
+  tracer list --status in_progress
+  # bd-1 [in_progress, Assignee: claude-1]
+  
+  # Agent 2 claims bd-2 instead
+  tracer update bd-2 --status in_progress
+  # Auto-assigned to cursor-2
+  
+  # Agent 3 claims bd-3
+  export TRACE_ACTOR="gpt-4"
+  tracer update bd-3 --status in_progress
+  # Auto-assigned to gpt-4
+  
+  # Check overall status
+  tracer list --status in_progress
+  # bd-1 [in_progress, Assignee: claude-1]
+  # bd-2 [in_progress, Assignee: cursor-2]
+  # bd-3 [in_progress, Assignee: gpt-4]
+  ```
+</Accordion>
+
+## Clearing Assignees
+
+Remove an assignee by setting to empty string:
+
+```bash
+# Clear assignee
+tracer update bd-1 --assignee ""
+
+# Verify it's cleared
+tracer show bd-1 --json | jq '.assignee'
+# Output: ""
+```
+
+When an unassigned issue status changes to `in_progress`, auto-assignment will trigger again.
+
+## Assignment and Status Changes
+
+Assignment behavior varies by status transition:
+
+| Status Change | Auto-Assignment Behavior |
+|---------------|-------------------------|
+| `open` → `in_progress` | Assigns to actor if no assignee |
+| `blocked` → `in_progress` | Assigns to actor if no assignee |
+| `in_progress` → `blocked` | Keeps existing assignee |
+| `in_progress` → `closed` | Keeps existing assignee |
+| `closed` → `in_progress` | Assigns to actor if no assignee |
+
+<Note>
+Assignees persist across status changes unless explicitly cleared or changed.
+</Note>
+
+## Scripting with Assignees
+
+### Check Before Starting Work
+
+```bash
+#!/bin/bash
+
+ISSUE_ID="bd-1"
+CURRENT_ASSIGNEE=$(tracer show $ISSUE_ID --json | jq -r '.assignee')
+
+if [ "$CURRENT_ASSIGNEE" != "" ] && [ "$CURRENT_ASSIGNEE" != "$TRACE_ACTOR" ]; then
+  echo "Warning: $ISSUE_ID is already assigned to $CURRENT_ASSIGNEE"
+  echo "Do you want to take over? (y/n)"
+  read answer
+  if [ "$answer" != "y" ]; then
+    exit 1
+  fi
+  tracer update $ISSUE_ID --assignee $TRACE_ACTOR
+fi
+
+tracer update $ISSUE_ID --status in_progress
+```
+
+### Find Your Assigned Work
+
+```bash
+#!/bin/bash
+
+export TRACE_ACTOR="claude-1"
+
+echo "Your assigned work:"
+tracer list --assignee $TRACE_ACTOR --status in_progress
+
+echo "
+Your assigned work (all statuses):"
+tracer list --assignee $TRACE_ACTOR --json | jq -r '.[] | "\(.id) - \(.title) [\(.status)]"'
+```
+
+### Team Overview
+
+```bash
+#!/bin/bash
+
+echo "Work by assignee:"
+
+for agent in claude-1 cursor-2 gpt-4; do
+  count=$(tracer list --assignee $agent --status in_progress --json | jq '. | length')
+  echo "$agent: $count issues in progress"
+done
+```
+
+## Best Practices
+
+### Always Set TRACE_ACTOR
+
+```bash
+# At the start of every agent session
+export TRACE_ACTOR="your-agent-name"
+
+# Verify it's set
+echo $TRACE_ACTOR
+```
+
+### Check Assignee Before Starting
+
+```bash
+# Before claiming work, see if someone else is on it
+tracer show bd-1 | grep Assignee
+
+# If unassigned or assigned to you, proceed
+tracer update bd-1 --status in_progress
+```
+
+### Use Consistent Agent Names
+
+```bash
+# Good: consistent naming
+export TRACE_ACTOR="claude-sonnet-1"
+
+# Avoid: changing names mid-project
+export TRACE_ACTOR="claude"
+export TRACE_ACTOR="agent-1"
+export TRACE_ACTOR="my-agent"
+```
+
+### Unassign When Blocked Long-Term
+
+```bash
+# If you won't be returning to this work
+tracer update bd-1 --status blocked --assignee ""
+tracer comment bd-1 "Blocked indefinitely, unassigning so someone else can help"
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Example Scripts" icon="code" href="/integration/example-scripts">
+    See complete multi-agent scripts with auto-assignment
+  </Card>
+  <Card title="Continuous Integration" icon="workflow" href="/integration/continuous-integration">
+    Use Tracer in CI/CD pipelines
+  </Card>
+</CardGroup>

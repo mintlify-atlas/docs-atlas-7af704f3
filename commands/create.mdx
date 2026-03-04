@@ -1,0 +1,149 @@
+---
+title: tracer create
+description: Create a new issue in your tracer database
+---
+
+## Syntax
+
+```bash
+tracer create [TITLE] [OPTIONS]
+```
+
+## Description
+
+Creates a new issue with the specified title and options. Issues are automatically assigned sequential IDs based on your configured prefix.
+
+## Arguments
+
+<ParamField path="TITLE" type="string" required>
+  The issue title. Wrap in quotes if it contains spaces.
+</ParamField>
+
+## Options
+
+<ParamField path="-d, --description" type="string">
+  Issue description with additional details.
+</ParamField>
+
+<ParamField path="-p, --priority" type="integer" default="2">
+  Priority level (0=highest, 4=lowest).
+</ParamField>
+
+<ParamField path="-t, --issue-type" type="enum" default="task">
+  Issue type. Valid values: `bug`, `feature`, `task`, `epic`, `chore`.
+</ParamField>
+
+<ParamField path="-a, --assignee" type="string">
+  Assign the issue to a specific person or agent.
+</ParamField>
+
+<ParamField path="-l, --labels" type="string">
+  Comma-separated labels to attach to the issue.
+</ParamField>
+
+<ParamField path="--deps" type="string">
+  Comma-separated dependencies. Format: `type:id` or just `id` for blocks type.
+  
+  Types: `blocks`, `related`, `parent-child`, `discovered-from`.
+</ParamField>
+
+<ParamField path="--id" type="string">
+  Explicit issue ID to avoid collisions. Use with caution.
+</ParamField>
+
+<ParamField path="-f, --file" type="string">
+  Create from markdown file (not yet implemented).
+</ParamField>
+
+<ParamField path="--json" type="boolean">
+  Output the created issue in JSON format.
+</ParamField>
+
+## Examples
+
+<CodeGroup>
+
+```bash Simple issue
+tracer create "Fix login bug"
+```
+
+```bash High-priority bug
+tracer create "Critical auth vulnerability" -t bug -p 0
+```
+
+```bash Feature with description
+tracer create "Add user profile page" \
+  -t feature \
+  -p 1 \
+  -d "Users should be able to view and edit their profile"
+```
+
+```bash With labels and assignee
+tracer create "Refactor API client" \
+  -t chore \
+  -l "refactor,technical-debt" \
+  -a "agent-1"
+```
+
+```bash With dependencies
+tracer create "Deploy to production" \
+  -p 1 \
+  --deps "blocks:bd-5,blocks:bd-7"
+```
+
+```bash Create epic with subtasks
+# Create the epic
+EPIC_ID=$(tracer create "User authentication system" -t epic -p 0 --json | jq -r '.id')
+
+# Create subtasks
+tracer create "Design auth schema" -t task --deps "parent-child:$EPIC_ID"
+tracer create "Implement login endpoint" -t task --deps "parent-child:$EPIC_ID"
+```
+
+</CodeGroup>
+
+## Output Format
+
+### Human-readable
+
+```
+✓ Created issue bd-42 Fix login bug
+  Labels: security, urgent
+  Dependencies: blocks:bd-41
+```
+
+### JSON (with --json flag)
+
+```json
+{
+  "id": "bd-42",
+  "title": "Fix login bug",
+  "description": "",
+  "design": "",
+  "acceptance_criteria": "",
+  "notes": "",
+  "status": "open",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "",
+  "estimated_minutes": null,
+  "created_at": "2026-03-04T10:30:00Z",
+  "updated_at": "2026-03-04T10:30:00Z",
+  "closed_at": null,
+  "external_ref": null,
+  "dependencies": []
+}
+```
+
+<Note>
+Issues are created with status `open` by default. Use `tracer update` to change the status to `in_progress` when you start working on them.
+</Note>
+
+<Tip>
+Use the `--json` flag to capture the issue ID in scripts:
+
+```bash
+ISSUE_ID=$(tracer create "My task" --json | jq -r '.id')
+echo "Created: $ISSUE_ID"
+```
+</Tip>

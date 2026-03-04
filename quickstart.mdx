@@ -1,80 +1,421 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quick Start
+description: Get started with Tracer in 5 minutes - from initialization to tracking your first issues
 ---
 
-## Get started in three steps
+This guide walks you through using Tracer for the first time. You'll initialize a project, create issues, track dependencies, and find ready work.
 
-Get your documentation site running locally and make your first customization.
+## Step 1: Initialize Tracer
 
-### Step 1: Set up your local environment
+Navigate to your project directory and initialize Tracer:
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
+```bash
+cd ~/my-project
+tracer init
+```
+
+<Note>
+  By default, Tracer uses the prefix `bd` for issue IDs (e.g., bd-1, bd-2). You can customize this with `tracer init --prefix myapp`.
+</Note>
+
+You should see:
+
+```
+✓ Initialized tracer database at /path/to/my-project/.trace/bd.db
+  Prefix: bd
+  JSONL: /path/to/my-project/.trace/issues.jsonl
+
+Next steps:
+  1. Create your first issue: tracer create "My first task"
+  2. See ready work: tracer ready
+  3. Add to git: git add .trace/issues.jsonl
+```
+
+This creates two files:
+- `.trace/bd.db` - SQLite database for fast queries
+- `.trace/issues.jsonl` - Git-friendly export for version control
+
+## Step 2: Create Your First Issue
+
+Let's create a feature to implement:
+
+```bash
+tracer create "Implement user authentication" -p 1 -t feature
+```
+
+Output:
+```
+✓ Created issue bd-1 Implement user authentication
+```
+
+<Tip>
+  Priority ranges from 0 (highest) to 4 (lowest). Default is 2. Issue types include: `task`, `bug`, `feature`, `epic`, `chore`.
+</Tip>
+
+## Step 3: Break Down Work
+
+Large features should be broken into smaller tasks. Let's create an epic with subtasks:
+
+<Steps>
+  <Step title="Create the epic">
+    ```bash
+    tracer create "User authentication system" -t epic -p 0
+    # Creates bd-2
+    ```
+  </Step>
+  
+  <Step title="Create subtasks">
+    ```bash
+    tracer create "Design auth database schema" -t task -p 1
+    # Creates bd-3
     
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
+    tracer create "Implement login endpoint" -t task -p 1
+    # Creates bd-4
     
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
+    tracer create "Add session management" -t task -p 1
+    # Creates bd-5
+    ```
+  </Step>
+  
+  <Step title="Link subtasks to epic">
+    ```bash
+    tracer dep add bd-3 bd-2 --type parent-child
+    tracer dep add bd-4 bd-2 --type parent-child
+    tracer dep add bd-5 bd-2 --type parent-child
+    ```
+  </Step>
+  
+  <Step title="Add blocking dependencies">
+    The login endpoint and session management both depend on the schema being designed first:
     
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+    ```bash
+    tracer dep add bd-4 bd-3 --type blocks
+    tracer dep add bd-5 bd-3 --type blocks
+    ```
+  </Step>
+</Steps>
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+## Step 4: Find Ready Work
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+Now let's see what's ready to work on:
 
-### Step 3: Go live
+```bash
+tracer ready
+```
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+Output:
+```
+✓ Ready work: 2 issue(s)
 
-## Next steps
+bd-1 Implement user authentication [P1, feature]
+  Status: open
+  Created: 2026-03-04 10:00 | Updated: 2026-03-04 10:00
 
-Now that you have your docs running, explore these key features:
+bd-3 Design auth database schema [P1, task]
+  Status: open
+  Created: 2026-03-04 10:05 | Updated: 2026-03-04 10:05
+```
+
+<Note>
+  Issues bd-4 and bd-5 don't show up because they're blocked by bd-3. Tracer automatically analyzes the dependency graph.
+</Note>
+
+## Step 5: Start Working
+
+Pick an issue and mark it as in progress:
+
+```bash
+tracer update bd-3 --status in_progress
+```
+
+<Tip>
+  When you set status to `in_progress`, Tracer auto-assigns the issue to your actor name (from `TRACE_ACTOR` env var or system username).
+</Tip>
+
+Check the status:
+
+```bash
+tracer show bd-3
+```
+
+Output:
+```
+bd-3: Design auth database schema
+
+  Status:       in_progress
+  Type:         task
+  Priority:     1
+  Assignee:     your-username
+  Created:      2026-03-04 10:05:00
+  Updated:      2026-03-04 10:10:00
+
+  Dependencies:
+    • bd-3 blocks bd-4 (Implement login endpoint)
+    • bd-3 blocks bd-5 (Add session management)
+    • bd-3 is child of bd-2 (User authentication system)
+```
+
+## Step 6: Track Discovered Work
+
+While working on bd-3, you discover a bug. File it immediately:
+
+```bash
+tracer create "Fix null handling in user table" -t bug -p 0
+# Creates bd-6
+
+tracer dep add bd-6 bd-3 --type discovered-from
+```
+
+This links the bug back to the task where you found it, maintaining context.
+
+## Step 7: Add Comments
+
+Leave notes for yourself or other agents:
+
+```bash
+tracer comment bd-3 "Using PostgreSQL schema with UUID primary keys"
+```
+
+Comments appear when you `tracer show bd-3`.
+
+## Step 8: Complete Work
+
+Once you're done, close the issue:
+
+```bash
+tracer close bd-3 --reason "Schema designed and tested"
+```
+
+Now check ready work again:
+
+```bash
+tracer ready
+```
+
+Output:
+```
+✓ Ready work: 4 issue(s)
+
+bd-1 Implement user authentication [P1, feature]
+bd-4 Implement login endpoint [P1, task]
+bd-5 Add session management [P1, task]
+bd-6 Fix null handling in user table [P0, bug]
+```
+
+<Note>
+  Issues bd-4 and bd-5 are now ready because their blocker (bd-3) is closed!
+</Note>
+
+## Step 9: Check Progress
+
+View overall statistics:
+
+```bash
+tracer stats
+```
+
+Output:
+```
+Issue Statistics
+
+  Total Issues:      6
+  Open:              4
+  In Progress:       0
+  Blocked:           0
+  Closed:            1
+
+  Ready to Work:     4
+
+  Avg Lead Time:     5 minutes
+```
+
+## Step 10: Commit to Git
+
+Tracer auto-exports changes to `.trace/issues.jsonl`. Commit it:
+
+```bash
+git add .trace/issues.jsonl
+git commit -m "Add authentication feature tasks"
+```
+
+<Warning>
+  Add `.trace/*.db` to your `.gitignore`. Only commit the `.jsonl` file, not the SQLite database.
+</Warning>
+
+## Multi-Agent Workflow
+
+If multiple AI agents work on the same project, use the `--actor` flag to identify who's doing what:
+
+<CodeGroup>
+```bash Agent 1
+# Agent 1 claims work
+tracer --actor agent-1 update bd-4 --status in_progress
+tracer --actor agent-1 comment bd-4 "Working on login endpoint"
+```
+
+```bash Agent 2
+# Agent 2 checks what Agent 1 is doing
+tracer show bd-4
+# Shows assignee: agent-1 and comments
+
+# Agent 2 picks different work
+tracer --actor agent-2 ready
+tracer --actor agent-2 update bd-5 --status in_progress
+```
+
+```bash Agent 1 Completes
+# Agent 1 finishes
+tracer --actor agent-1 close bd-4 --reason "Login endpoint complete"
+```
+</CodeGroup>
+
+<Tip>
+  Set `export TRACE_ACTOR=agent-name` in your environment to avoid typing `--actor` every time.
+</Tip>
+
+## JSON Output for AI Agents
+
+All commands support `--json` for programmatic parsing:
+
+```bash
+tracer ready --json | jq '.[0].id'
+# Output: "bd-1"
+
+tracer ready --json | jq 'length'
+# Output: 4
+```
+
+Example JSON structure:
+
+```json
+[
+  {
+    "id": "bd-1",
+    "title": "Implement user authentication",
+    "status": "open",
+    "priority": 1,
+    "issue_type": "feature",
+    "assignee": "",
+    "created_at": "2026-03-04T10:00:00Z",
+    "updated_at": "2026-03-04T10:00:00Z",
+    "dependencies": []
+  }
+]
+```
+
+## Common Commands Reference
+
+<CodeGroup>
+```bash Create Issues
+# Basic task
+tracer create "Fix bug in parser"
+
+# With all options
+tracer create "Add feature X" -p 0 -t feature -l backend,api
+
+# With dependencies
+tracer create "Test feature X" --deps blocks:bd-10
+```
+
+```bash Update Status
+# Start work
+tracer update bd-1 --status in_progress
+
+# Mark as blocked
+tracer update bd-1 --status blocked
+
+# Close (single)
+tracer close bd-1 --reason "Completed"
+
+# Close (multiple)
+tracer close bd-1 bd-2 bd-3 --reason "Sprint complete"
+```
+
+```bash Query Work
+# See ready work
+tracer ready
+
+# See blocked work
+tracer blocked
+
+# List all open issues
+tracer list --status open
+
+# Filter by priority
+tracer ready --priority 0
+```
+
+```bash Dependencies
+# Add dependency
+tracer dep add bd-2 bd-1 --type blocks
+
+# View dependency tree
+tracer dep tree bd-1
+
+# Check for cycles
+tracer dep cycles
+
+# Remove dependency
+tracer dep remove bd-2 bd-1
+```
+</CodeGroup>
+
+## Dependency Types Explained
 
 <CardGroup cols={2}>
+  <Card title="blocks" icon="lock">
+    **Issue A blocks Issue B**
+    
+    B cannot start until A is complete. Use for sequential work.
+    
+    Example: Schema design blocks API implementation
+  </Card>
+  
+  <Card title="parent-child" icon="diagram-nested">
+    **Issue B is child of Issue A**
+    
+    B is a subtask of epic A. Use for breaking down large features.
+    
+    Example: "Login endpoint" is child of "Auth system"
+  </Card>
+  
+  <Card title="discovered-from" icon="magnifying-glass">
+    **Issue B was discovered while working on Issue A**
+    
+    Tracks where bugs/tasks were found. Maintains context.
+    
+    Example: Found a null pointer bug while implementing a feature
+  </Card>
+  
+  <Card title="related" icon="link">
+    **Issues A and B are related**
+    
+    Connected but don't block. Use for cross-references.
+    
+    Example: Two features that share code
+  </Card>
+</CardGroup>
 
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
+## Next Steps
 
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
+You now know the basics! Here's what to explore next:
 
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+<CardGroup cols={2}>
+  <Card title="Advanced Features" icon="star">
+    - Dependency tree visualization with `tracer dep tree`
+    - Export/import for backup and migration
+    - Custom ID prefixes for multiple projects
+    - Label management and filtering
+  </Card>
+  
+  <Card title="Integration Tips" icon="code">
+    - Use `--json` flag for script integration
+    - Set `TRACE_ACTOR` for multi-agent setups
+    - Commit `.jsonl` files, ignore `.db` files
+    - Auto-discover database with parent directory walking
+  </Card>
 </CardGroup>
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+  Tracer automatically discovers the database by walking up parent directories, just like git. Run `tracer` commands from anywhere in your project.
 </Note>

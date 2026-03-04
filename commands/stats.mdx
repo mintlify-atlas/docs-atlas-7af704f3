@@ -1,0 +1,98 @@
+---
+title: "stats"
+description: "Display statistics about issues and workflow"
+---
+
+## Syntax
+
+```bash
+tracer stats
+```
+
+## Options
+
+<ParamField path="--json" type="boolean">
+  Output result in JSON format
+</ParamField>
+
+## Examples
+
+<CodeGroup>
+
+```bash Basic Usage
+# Show project statistics
+tracer stats
+```
+
+```bash JSON Output
+# Get structured JSON output
+tracer stats --json
+```
+
+</CodeGroup>
+
+## Output
+
+### Human-Readable Format
+
+```
+Issue Statistics
+
+  Total Issues:      42
+  Open:              15
+  In Progress:       8
+  Blocked:           3
+  Closed:            16
+
+  Ready to Work:     12
+
+  Avg Lead Time:     14.5 hours
+```
+
+### JSON Format
+
+```json
+{
+  "total_issues": 42,
+  "open_issues": 15,
+  "in_progress_issues": 8,
+  "closed_issues": 16,
+  "blocked_issues": 3,
+  "ready_issues": 12,
+  "average_lead_time_hours": 14.5
+}
+```
+
+## Statistics Explained
+
+<ParamField path="total_issues" type="integer">
+  Total number of issues in the system (all statuses)
+</ParamField>
+
+<ParamField path="open_issues" type="integer">
+  Number of issues with status "open"
+</ParamField>
+
+<ParamField path="in_progress_issues" type="integer">
+  Number of issues with status "in_progress"
+</ParamField>
+
+<ParamField path="blocked_issues" type="integer">
+  Number of issues with status "blocked"
+</ParamField>
+
+<ParamField path="closed_issues" type="integer">
+  Number of issues with status "closed"
+</ParamField>
+
+<ParamField path="ready_issues" type="integer">
+  Number of open issues that have no blocking dependencies
+</ParamField>
+
+<ParamField path="average_lead_time_hours" type="float">
+  Average time in hours from issue creation to closure (only includes closed issues)
+</ParamField>
+
+<Tip>
+  Use this command regularly to track project health and workflow efficiency. A high "ready to work" count indicates good project planning.
+</Tip>

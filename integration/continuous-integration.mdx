@@ -1,0 +1,445 @@
+---
+title: Continuous Integration
+description: Integrate Tracer with CI/CD pipelines for automated issue tracking and agent coordination
+---
+
+Tracer integrates seamlessly with CI/CD pipelines to automate issue creation, track test failures, and coordinate agent work based on build results.
+
+## CI/CD Benefits
+
+Using Tracer in continuous integration provides:
+
+- **Automated issue creation** from test failures
+- **Build status tracking** through comments
+- **Agent coordination** based on CI results
+- **Audit trail** of automated changes
+
+<Note>
+All Tracer commands support `--json` output for easy parsing in CI/CD scripts.
+</Note>
+
+## Basic CI Integration
+
+Minimal integration that creates issues from failures:
+
+```yaml
+# .github/workflows/ci.yml
+name: CI with Tracer
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      
+      - name: Install Tracer
+        run: cargo install tracer-cli
+      
+      - name: Run tests
+        id: tests
+        run: |
+          export TRACE_ACTOR="ci-bot"
+          cargo test || echo "tests_failed=true" >> $GITHUB_OUTPUT
+      
+      - name: File issues for failures
+        if: steps.tests.outputs.tests_failed == 'true'
+        run: |
+          export TRACE_ACTOR="ci-bot"
+          tracer create "Build #${{ github.run_number }} failed" -t bug -p 0
+```
+
+## JSON Output Parsing
+
+Use `jq` to parse Tracer JSON output in CI scripts:
+
+<CodeGroup>
+```bash Get Issue Count
+# Count ready issues
+READY_COUNT=$(tracer ready --json | jq '. | length')
+echo "Ready issues: $READY_COUNT"
+```
+
+```bash Extract Issue IDs
+# Get all issue IDs
+ISSUES=$(tracer list --json | jq -r '.[].id')
+for issue in $ISSUES; do
+  echo "Issue: $issue"
+done
+```
+
+```bash Parse Issue Fields
+# Extract specific fields
+tracer show bd-1 --json | jq -r '
+  "ID: \(.id)",
+  "Title: \(.title)",
+  "Status: \(.status)",
+  "Assignee: \(.assignee)"
+'
+```
+
+```bash Filter Issues
+# Find high priority bugs
+tracer list --json | jq '.[] | select(.priority == 0 and .issue_type == "bug")'
+```
+</CodeGroup>
+
+## Test Failure Tracking
+
+Automatically create issues for test failures:
+
+```bash
+#!/bin/bash
+
+export TRACE_ACTOR="ci-bot"
+BUILD_NUMBER=${GITHUB_RUN_NUMBER:-"local"}
+
+# Run tests and capture output
+if ! cargo test 2>&1 | tee test_output.txt; then
+  echo "Tests failed - processing failures"
+  
+  # Parse failed tests
+  FAILED_TESTS=$(grep "FAILED" test_output.txt | awk '{print $2}')
+  
+  for test in $FAILED_TESTS; do
+    ISSUE_TITLE="Test failure: $test"
+    
+    # Check if issue already exists
+    EXISTING=$(tracer list --json | jq -r ".[] | select(.title == \"$ISSUE_TITLE\" and .status != \"closed\") | .id" | head -n 1)
+    
+    if [ -z "$EXISTING" ]; then
+      # Create new issue
+      NEW_ISSUE=$(tracer create "$ISSUE_TITLE" -t bug -p 0 --json | jq -r '.id')
+      tracer comment $NEW_ISSUE "Failed in build #$BUILD_NUMBER"
+      tracer comment $NEW_ISSUE "See: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+      echo "Created issue $NEW_ISSUE for $test"
+    else
+      # Update existing issue
+      tracer comment $EXISTING "Still failing in build #$BUILD_NUMBER"
+      echo "Updated $EXISTING - $test still failing"
+    fi
+  done
+  
+  exit 1
+fi
+
+echo "All tests passed - closing any test failure issues"
+
+# Close resolved test failure issues
+OPEN_FAILURES=$(tracer list --json | jq -r '.[] | select(.title | startswith("Test failure:") and .status != "closed") | .id')
+
+for issue in $OPEN_FAILURES; then
+  tracer close $issue --reason "Tests passing in build #$BUILD_NUMBER"
+  echo "Closed $issue - tests now passing"
+done
+```
+
+## Build Status Comments
+
+Add build status updates to relevant issues:
+
+```bash
+#!/bin/bash
+
+export TRACE_ACTOR="ci-bot"
+BUILD_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+# Find issues mentioned in commits
+ISSUE_IDS=$(git log -1 --pretty=%B | grep -oE '(bd-[0-9]+)' | sort -u)
+
+for issue in $ISSUE_IDS; do
+  # Verify issue exists
+  if tracer show $issue --json > /dev/null 2>&1; then
+    if [ "$BUILD_STATUS" = "success" ]; then
+      tracer comment $issue "✓ Build passed: $BUILD_URL"
+    else
+      tracer comment $issue "✗ Build failed: $BUILD_URL"
+    fi
+  fi
+done
+```
+
+## Agent Task Assignment from CI
+
+Assign work to agents based on CI results:
+
+<Steps>
+  <Step title="Detect issues in build">
+    ```bash
+    # CI detects linting errors
+    if ! cargo clippy -- -D warnings; then
+      ISSUE=$(tracer create "Fix clippy warnings" -t chore -p 1 --json | jq -r '.id')
+      tracer comment $ISSUE "$(cargo clippy 2>&1)"
+    fi
+    ```
+  </Step>
+  
+  <Step title="Assign to available agent">
+    ```bash
+    # Assign to agent with least work
+    for agent in claude-1 cursor-2 gpt-4; do
+      COUNT=$(tracer list --assignee $agent --status in_progress --json | jq '. | length')
+      echo "$agent: $COUNT issues"
+    done | sort -k2 -n | head -n 1 | awk '{print $1}' > /tmp/agent
+    
+    AGENT=$(cat /tmp/agent)
+    tracer update $ISSUE --assignee $AGENT
+    tracer comment $ISSUE "Auto-assigned to $AGENT"
+    ```
+  </Step>
+  
+  <Step title="Notify agent">
+    ```bash
+    # Agent picks up work in next session
+    export TRACE_ACTOR=$AGENT
+    tracer list --assignee $TRACE_ACTOR
+    ```
+  </Step>
+</Steps>
+
+## Dependency Updates
+
+Track dependency update issues:
+
+```bash
+#!/bin/bash
+
+export TRACE_ACTOR="dependabot"
+
+# Check for outdated dependencies
+OUTDATED=$(cargo outdated --format json | jq -r '.dependencies[] | select(.latest != .project) | .name')
+
+for dep in $OUTDATED; do
+  ISSUE_TITLE="Update dependency: $dep"
+  
+  # Check if issue exists
+  EXISTING=$(tracer list --json | jq -r ".[] | select(.title == \"$ISSUE_TITLE\" and .status != \"closed\") | .id" | head -n 1)
+  
+  if [ -z "$EXISTING" ]; then
+    CURRENT=$(cargo outdated --format json | jq -r ".dependencies[] | select(.name == \"$dep\") | .project")
+    LATEST=$(cargo outdated --format json | jq -r ".dependencies[] | select(.name == \"$dep\") | .latest")
+    
+    NEW_ISSUE=$(tracer create "$ISSUE_TITLE" -t chore -p 2 --json | jq -r '.id')
+    tracer comment $NEW_ISSUE "Current: $CURRENT, Latest: $LATEST"
+    echo "Created $NEW_ISSUE for $dep update"
+  fi
+done
+```
+
+## Performance Regression Detection
+
+Create issues for performance regressions:
+
+```bash
+#!/bin/bash
+
+export TRACE_ACTOR="perf-bot"
+
+# Run benchmarks
+cargo bench --bench main -- --save-baseline current
+
+# Compare with previous baseline
+if cargo bench --bench main -- --baseline previous 2>&1 | grep -q "regressed"; then
+  REGRESSIONS=$(cargo bench --bench main -- --baseline previous 2>&1 | grep "regressed" | awk '{print $1}')
+  
+  for bench in $REGRESSIONS; do
+    ISSUE_TITLE="Performance regression: $bench"
+    
+    EXISTING=$(tracer list --json | jq -r ".[] | select(.title == \"$ISSUE_TITLE\" and .status != \"closed\") | .id" | head -n 1)
+    
+    if [ -z "$EXISTING" ]; then
+      NEW_ISSUE=$(tracer create "$ISSUE_TITLE" -t bug -p 1 --json | jq -r '.id')
+      tracer comment $NEW_ISSUE "Detected in build #${BUILD_NUMBER}"
+      echo "Created $NEW_ISSUE for regression in $bench"
+    fi
+  done
+fi
+```
+
+## Complete CI/CD Workflow
+
+Full GitHub Actions workflow:
+
+```yaml
+# .github/workflows/tracer-ci.yml
+name: Tracer CI/CD Integration
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  TRACE_ACTOR: ci-bot
+
+jobs:
+  test-and-track:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Need full history for git log
+      
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      
+      - name: Install Tracer
+        run: cargo install tracer-cli
+      
+      - name: Initialize Tracer
+        run: |
+          tracer init
+          git config --global user.email "ci@example.com"
+          git config --global user.name "CI Bot"
+      
+      - name: Run Tests
+        id: tests
+        run: |
+          if cargo test 2>&1 | tee test_output.txt; then
+            echo "status=success" >> $GITHUB_OUTPUT
+          else
+            echo "status=failure" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Process Test Failures
+        if: steps.tests.outputs.status == 'failure'
+        run: |
+          FAILED=$(grep "FAILED" test_output.txt | awk '{print $2}')
+          
+          for test in $FAILED; do
+            TITLE="Test failure: $test"
+            EXISTING=$(tracer list --json | jq -r ".[] | select(.title == \"$TITLE\" and .status != \"closed\") | .id" | head -n 1)
+            
+            if [ -z "$EXISTING" ]; then
+              tracer create "$TITLE" -t bug -p 0
+            else
+              tracer comment $EXISTING "Still failing in build #${{ github.run_number }}"
+            fi
+          done
+      
+      - name: Update Issue Comments
+        run: |
+          ISSUES=$(git log -1 --pretty=%B | grep -oE 'bd-[0-9]+' | sort -u)
+          BUILD_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          
+          for issue in $ISSUES; do
+            if tracer show $issue --json > /dev/null 2>&1; then
+              if [ "${{ steps.tests.outputs.status }}" = "success" ]; then
+                tracer comment $issue "✓ Build #${{ github.run_number }} passed: $BUILD_URL"
+              else
+                tracer comment $issue "✗ Build #${{ github.run_number }} failed: $BUILD_URL"
+              fi
+            fi
+          done
+      
+      - name: Export Tracer Database
+        run: |
+          tracer export
+          git add .trace/
+          git commit -m "Update Tracer state from build #${{ github.run_number }}" || true
+      
+      - name: Show Stats
+        run: tracer stats
+```
+
+## Environment Variables for CI
+
+Common environment variable setup:
+
+<Tabs>
+  <Tab title="GitHub Actions">
+    ```yaml
+    env:
+      TRACE_ACTOR: ci-bot
+      TRACE_DB: .trace/issues.db
+      BUILD_NUMBER: ${{ github.run_number }}
+      BUILD_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    ```
+  </Tab>
+  
+  <Tab title="GitLab CI">
+    ```yaml
+    variables:
+      TRACE_ACTOR: ci-bot
+      TRACE_DB: .trace/issues.db
+      BUILD_NUMBER: $CI_PIPELINE_ID
+      BUILD_URL: $CI_PIPELINE_URL
+    ```
+  </Tab>
+  
+  <Tab title="Jenkins">
+    ```groovy
+    environment {
+      TRACE_ACTOR = 'ci-bot'
+      TRACE_DB = '.trace/issues.db'
+      BUILD_NUMBER = "${env.BUILD_NUMBER}"
+      BUILD_URL = "${env.BUILD_URL}"
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Automation Best Practices
+
+### Use Dedicated CI Actor
+
+```bash
+# Always use a dedicated actor for CI
+export TRACE_ACTOR="ci-bot"
+
+# Not developer or agent names
+# export TRACE_ACTOR="alice"  # Don't do this
+```
+
+### Check Before Creating Issues
+
+```bash
+# Avoid duplicate issues
+TITLE="Build failure: test_auth"
+EXISTING=$(tracer list --json | jq -r ".[] | select(.title == \"$TITLE\" and .status != \"closed\") | .id" | head -n 1)
+
+if [ -z "$EXISTING" ]; then
+  tracer create "$TITLE" -t bug -p 0
+else
+  tracer comment $EXISTING "Still occurring in build #$BUILD_NUMBER"
+fi
+```
+
+### Include Build Context
+
+```bash
+# Always link back to CI build
+BUILD_URL="https://ci.example.com/builds/$BUILD_NUMBER"
+tracer comment $ISSUE "Build: $BUILD_URL"
+tracer comment $ISSUE "Commit: $(git rev-parse --short HEAD)"
+tracer comment $ISSUE "Branch: $(git branch --show-current)"
+```
+
+### Auto-Close Resolved Issues
+
+```bash
+# Close issues when tests pass
+if [ "$BUILD_STATUS" = "success" ]; then
+  OPEN_FAILURES=$(tracer list --json | jq -r '.[] | select(.title | startswith("Test failure:")) | .id')
+  
+  for issue in $OPEN_FAILURES; do
+    tracer close $issue --reason "Resolved in build #$BUILD_NUMBER"
+  done
+fi
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Example Scripts" icon="code" href="/integration/example-scripts">
+    More complete automation scripts
+  </Card>
+  <Card title="Multi-Agent Coordination" icon="users" href="/integration/multi-agent-coordination">
+    Coordinate agents based on CI results
+  </Card>
+</CardGroup>

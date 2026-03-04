@@ -1,0 +1,494 @@
+---
+title: Example Scripts
+description: Complete working bash scripts for multi-agent coordination with Tracer
+---
+
+This page contains complete, working bash scripts that demonstrate how to integrate Tracer into AI agent workflows.
+
+## Basic Agent Workflow
+
+Complete workflow for a single agent session:
+
+```bash
+#!/bin/bash
+
+# Set actor identity
+export TRACE_ACTOR="claude-1"
+
+# 1. Check for ready work
+WORK=$(tracer ready --limit 1 --json)
+
+if [ "$(echo $WORK | jq length)" -eq 0 ]; then
+  echo "No ready work found"
+  exit 0
+fi
+
+# 2. Get issue details
+ISSUE_ID=$(echo $WORK | jq -r '.[0].id')
+ISSUE_TITLE=$(echo $WORK | jq -r '.[0].title')
+
+echo "Working on: $ISSUE_ID - $ISSUE_TITLE"
+
+# 3. Claim the work
+tracer update $ISSUE_ID --status in_progress
+tracer comment $ISSUE_ID "Starting work on this issue"
+
+# 4. Do the work...
+# (your implementation here)
+
+# 5. Discover new work during execution
+if [ "$FOUND_BUG" = "true" ]; then
+  BUG_ID=$(tracer create "Fix discovered issue" -t bug -p 0 --json | jq -r '.id')
+  tracer dep add $BUG_ID $ISSUE_ID --type discovered-from
+  tracer comment $BUG_ID "Found while working on $ISSUE_ID"
+fi
+
+# 6. Complete the work
+tracer comment $ISSUE_ID "Work complete, all tests passing"
+tracer close $ISSUE_ID --reason "Implemented and tested"
+
+# 7. Show stats
+tracer stats
+```
+
+## Multi-Agent Coordination
+
+Script for coordinating three agents working in parallel:
+
+```bash
+#!/bin/bash
+
+# Initialize project
+tracer init
+
+# Create initial work
+tracer create "Implement auth API" -p 1 -t feature
+tracer create "Write auth tests" -p 1 -t task
+tracer create "Update documentation" -p 2 -t task
+
+# Set up dependencies
+tracer dep add bd-2 bd-1 --type blocks
+tracer dep add bd-3 bd-1 --type blocks
+
+# Agent 1: Work on API
+export TRACE_ACTOR="claude-1"
+tracer update bd-1 --status in_progress
+tracer comment bd-1 "Starting JWT implementation"
+
+# Agent 2: Check what's available
+export TRACE_ACTOR="cursor-2"
+READY=$(tracer ready --json)
+echo "Agent 2 sees: $(echo $READY | jq -r '.[].id')"  # Nothing - blocked by bd-1
+
+# Agent 2: Monitor bd-1
+tracer show bd-1
+tracer comment bd-1 "Will start tests once API is ready"
+
+# Agent 1: Complete API work
+export TRACE_ACTOR="claude-1"
+tracer comment bd-1 "JWT implementation complete"
+tracer close bd-1 --reason "API implemented and unit tested"
+
+# Agent 2: Now sees unblocked work
+export TRACE_ACTOR="cursor-2"
+tracer ready --json | jq -r '.[].id'  # bd-2 and bd-3 now ready
+tracer update bd-2 --status in_progress
+tracer comment bd-2 "Starting integration tests"
+
+# Agent 3: Pick up documentation
+export TRACE_ACTOR="gpt-4"
+tracer update bd-3 --status in_progress
+tracer comment bd-3 "Updating API documentation"
+
+# Show overall status
+tracer list --status in_progress
+```
+
+## Epic Creation with Subtasks
+
+Break down a large feature into coordinated subtasks:
+
+```bash
+#!/bin/bash
+
+export TRACE_ACTOR="project-coordinator"
+
+# Create epic
+EPIC=$(tracer create "User authentication system" -t epic -p 0 --json | jq -r '.id')
+echo "Created epic: $EPIC"
+
+# Create child tasks
+T1=$(tracer create "Design auth schema" -t task -p 1 --json | jq -r '.id')
+tracer dep add $T1 $EPIC --type parent-child
+tracer comment $T1 "First step: design the database schema"
+
+T2=$(tracer create "Implement login endpoint" -t task -p 1 --json | jq -r '.id')
+tracer dep add $T2 $EPIC --type parent-child
+tracer dep add $T2 $T1 --type blocks  # T2 blocked by T1
+tracer comment $T2 "Depends on schema design"
+
+T3=$(tracer create "Add session management" -t task -p 1 --json | jq -r '.id')
+tracer dep add $T3 $EPIC --type parent-child
+tracer dep add $T3 $T1 --type blocks  # T3 blocked by T1
+tracer comment $T3 "Depends on schema design"
+
+T4=$(tracer create "Implement password reset" -t task -p 2 --json | jq -r '.id')
+tracer dep add $T4 $EPIC --type parent-child
+tracer dep add $T4 $T2 --type blocks  # T4 blocked by T2
+tracer comment $T4 "Can start after login endpoint is done"
+
+# Show the dependency tree
+echo "
+Dependency tree:"
+tracer dep tree $EPIC
+
+# Show what's ready to work on
+echo "
+Ready to start:"
+tracer ready
+```
+
+## Discovering and Filing Issues
+
+Agent discovers issues while working:
+
+```bash
+#!/bin/bash
+
+export TRACE_ACTOR="claude-1"
+
+# Start on assigned work
+tracer update bd-5 --status in_progress
+tracer comment bd-5 "Starting implementation"
+
+# Discover a bug during work
+BUG=$(tracer create "Fix null pointer in validation" -t bug -p 0 --json | jq -r '.id')
+tracer dep add $BUG bd-5 --type discovered-from
+tracer comment $BUG "Found while implementing bd-5"
+tracer comment bd-5 "Discovered $BUG - needs fixing before completion"
+
+# Fix the bug first
+tracer update $BUG --status in_progress
+tracer comment $BUG "Fixing null check in validator.rs:145"
+# ... do the fix ...
+tracer close $BUG --reason "Added null check"
+
+# Continue original work
+tracer comment bd-5 "Bug fixed, continuing with implementation"
+# ... complete the work ...
+tracer close bd-5 --reason "Implementation complete"
+```
+
+## Handoff Between Agents
+
+One agent requests help from another:
+
+```bash
+#!/bin/bash
+
+# Agent 1 hits a blocker
+export TRACE_ACTOR="claude-1"
+tracer update bd-7 --status blocked
+tracer comment bd-7 "Stuck on OAuth2 implementation - need help with refresh tokens"
+
+# Agent 2 sees the request and responds
+export TRACE_ACTOR="cursor-2"
+tracer show bd-7
+tracer comment bd-7 "I can help with OAuth. Creating a subtask."
+
+# Agent 2 creates related work
+OAUTH=$(tracer create "Implement OAuth2 refresh token flow" -t task -p 0 --json | jq -r '.id')
+tracer dep add $OAUTH bd-7 --type related
+tracer update $OAUTH --status in_progress
+tracer comment $OAUTH "Working on refresh token logic"
+
+# Agent 2 completes the OAuth work
+tracer comment $OAUTH "Refresh tokens implemented in auth/oauth.rs"
+tracer close $OAUTH --reason "OAuth refresh flow complete"
+
+# Agent 2 notifies Agent 1
+tracer comment bd-7 "OAuth refresh tokens done in $OAUTH - you can unblock now"
+
+# Agent 1 sees the notification and continues
+export TRACE_ACTOR="claude-1"
+tracer show bd-7
+tracer update bd-7 --status in_progress
+tracer comment bd-7 "Thanks! Integrating OAuth refresh tokens now"
+```
+
+## Checking for Active Work
+
+Script to avoid conflicts by checking assignees:
+
+```bash
+#!/bin/bash
+
+export TRACE_ACTOR="cursor-2"
+
+function claim_work() {
+  local issue_id=$1
+  
+  # Check if someone is already working on it
+  local assignee=$(tracer show $issue_id --json | jq -r '.assignee')
+  local status=$(tracer show $issue_id --json | jq -r '.status')
+  
+  if [ "$status" = "in_progress" ] && [ "$assignee" != "" ] && [ "$assignee" != "$TRACE_ACTOR" ]; then
+    echo "Warning: $issue_id is already assigned to $assignee"
+    echo "Skipping..."
+    return 1
+  fi
+  
+  # Claim the work
+  tracer update $issue_id --status in_progress
+  tracer comment $issue_id "Starting work on this issue"
+  echo "Claimed $issue_id"
+  return 0
+}
+
+# Try to claim work from ready list
+READY=$(tracer ready --json | jq -r '.[].id')
+
+for issue in $READY; do
+  if claim_work $issue; then
+    echo "Working on $issue"
+    break
+  fi
+done
+```
+
+## Batch Operations
+
+Close multiple related issues at once:
+
+```bash
+#!/bin/bash
+
+export TRACE_ACTOR="claude-1"
+
+# Complete a sprint - close all P0 bugs
+BUGS=$(tracer list --type bug --priority 0 --status in_progress --json | jq -r '.[].id')
+
+if [ -z "$BUGS" ]; then
+  echo "No P0 bugs to close"
+  exit 0
+fi
+
+echo "Closing bugs: $BUGS"
+
+# Close all at once
+tracer close $BUGS --reason "Sprint complete - all P0 bugs fixed"
+
+# Add summary comment to each
+for bug in $BUGS; do
+  tracer comment $bug "Closed as part of P0 bug sprint"
+done
+
+echo "Closed $(echo $BUGS | wc -w) bugs"
+tracer stats
+```
+
+## Priority-Based Work Selection
+
+Agent picks highest priority work:
+
+```bash
+#!/bin/bash
+
+export TRACE_ACTOR="claude-1"
+
+# Check for ready work, prioritizing P0, then P1, then P2
+for priority in 0 1 2; do
+  WORK=$(tracer ready --priority $priority --limit 1 --json)
+  
+  if [ "$(echo $WORK | jq length)" -gt 0 ]; then
+    ISSUE_ID=$(echo $WORK | jq -r '.[0].id')
+    ISSUE_TITLE=$(echo $WORK | jq -r '.[0].title')
+    
+    echo "Found P$priority work: $ISSUE_ID - $ISSUE_TITLE"
+    
+    tracer update $ISSUE_ID --status in_progress
+    tracer comment $ISSUE_ID "Starting work (P$priority)"
+    
+    # Do the work...
+    exit 0
+  fi
+done
+
+echo "No ready work found at any priority"
+```
+
+## Monitoring Progress
+
+Script to monitor and report progress:
+
+```bash
+#!/bin/bash
+
+function show_progress() {
+  echo "=== Tracer Progress Report ==="
+  echo ""
+  
+  # Overall stats
+  echo "Overall Statistics:"
+  tracer stats
+  echo ""
+  
+  # Work in progress by assignee
+  echo "In Progress by Assignee:"
+  for agent in claude-1 cursor-2 gpt-4; do
+    count=$(tracer list --assignee $agent --status in_progress --json | jq '. | length')
+    if [ $count -gt 0 ]; then
+      echo "  $agent: $count issues"
+      tracer list --assignee $agent --status in_progress --json | jq -r '.[] | "    - \(.id): \(.title)"'
+    fi
+  done
+  echo ""
+  
+  # Blocked issues
+  BLOCKED=$(tracer list --status blocked --json | jq '. | length')
+  if [ $BLOCKED -gt 0 ]; then
+    echo "Blocked Issues: $BLOCKED"
+    tracer list --status blocked --json | jq -r '.[] | "  \(.id): \(.title) (Assignee: \(.assignee))"'
+    echo ""
+  fi
+  
+  # Ready work
+  READY=$(tracer ready --json | jq '. | length')
+  echo "Ready to Work: $READY issues"
+  if [ $READY -gt 0 ]; then
+    tracer ready --limit 5 --json | jq -r '.[] | "  \(.id): \(.title) [P\(.priority)]"'
+  fi
+}
+
+show_progress
+```
+
+## CI/CD Integration
+
+Create issues from test failures:
+
+```bash
+#!/bin/bash
+
+export TRACE_ACTOR="ci-bot"
+
+# Run tests and capture failures
+if ! cargo test 2>&1 | tee test_output.txt; then
+  echo "Tests failed - filing issues"
+  
+  # Parse test failures
+  FAILED_TESTS=$(grep "test result: FAILED" test_output.txt -A 100 | grep "test.*FAILED" | awk '{print $2}')
+  
+  for test in $FAILED_TESTS; do
+    # Check if issue already exists
+    EXISTING=$(tracer list --json | jq -r ".[] | select(.title == \"Test failure: $test\") | .id")
+    
+    if [ -z "$EXISTING" ]; then
+      # Create new issue
+      ISSUE=$(tracer create "Test failure: $test" -t bug -p 0 --json | jq -r '.id')
+      tracer comment $ISSUE "Failed in CI build #${BUILD_NUMBER}"
+      echo "Created issue $ISSUE for failed test: $test"
+    else
+      # Update existing issue
+      tracer comment $EXISTING "Still failing in build #${BUILD_NUMBER}"
+      echo "Updated existing issue $EXISTING for test: $test"
+    fi
+  done
+fi
+```
+
+## Complete Multi-Agent Session
+
+Full session with three agents from AGENTS.md:
+
+```bash
+#!/bin/bash
+
+# Initialize project
+tracer init
+
+# Create issues
+tracer create "Implement user authentication" -p 1 -t feature
+tracer create "Write authentication tests" -p 1 -t task
+tracer create "Add password reset flow" -p 2 -t feature
+
+tracer dep add bd-2 bd-1 --type blocks
+tracer dep add bd-3 bd-1 --type blocks
+
+# === Agent 1 Session ===
+export TRACE_ACTOR="claude-1"
+
+echo "Agent 1: Checking ready work"
+tracer ready --limit 3
+
+echo "Agent 1: Starting on bd-1"
+tracer update bd-1 --status in_progress
+tracer comment bd-1 "Working on JWT implementation"
+
+# Simulate work...
+sleep 2
+
+echo "Agent 1: Completing bd-1"
+tracer comment bd-1 "API complete, ready for testing"
+tracer close bd-1 --reason "Implementation done"
+
+# === Agent 2 Session ===
+export TRACE_ACTOR="cursor-2"
+
+echo "Agent 2: Checking ready work"
+tracer ready
+
+echo "Agent 2: bd-2 is now unblocked"
+tracer update bd-2 --status in_progress
+tracer comment bd-2 "Starting tests for the new API"
+
+# Simulate work...
+sleep 2
+
+echo "Agent 2: Completing bd-2"
+tracer close bd-2 --reason "All tests passing"
+
+# === Agent 3 Session ===
+export TRACE_ACTOR="gpt-4"
+
+echo "Agent 3: Checking ready work"
+tracer ready
+
+echo "Agent 3: Starting on bd-3"
+tracer update bd-3 --status in_progress
+tracer comment bd-3 "Implementing password reset with email verification"
+
+# Discover new work
+NEW=$(tracer create "Add email template for password reset" -t task -p 1 --json | jq -r '.id')
+tracer dep add $NEW bd-3 --type discovered-from
+tracer comment $NEW "Needed for password reset flow"
+
+echo "Agent 3: Working on discovered issue $NEW"
+tracer update $NEW --status in_progress
+
+# Simulate work...
+sleep 2
+
+tracer close $NEW --reason "Email template created"
+tracer close bd-3 --reason "Password reset flow complete"
+
+# === Final Report ===
+echo "
+=== Final Project Status ==="
+tracer stats
+
+echo "
+=== All Issues ==="
+tracer list --json | jq -r '.[] | "\(.id): \(.title) [\(.status)]"'
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Continuous Integration" icon="workflow" href="/integration/continuous-integration">
+    Learn how to use Tracer in CI/CD pipelines
+  </Card>
+  <Card title="Multi-Agent Coordination" icon="users" href="/integration/multi-agent-coordination">
+    Review the coordination patterns
+  </Card>
+</CardGroup>

@@ -1,0 +1,66 @@
+---
+title: "dep remove"
+description: "Remove a dependency between issues"
+---
+
+## Syntax
+
+```bash
+tracer dep remove <issue_id> <depends_on_id>
+```
+
+## Parameters
+
+<ParamField path="issue_id" type="string" required>
+  The issue ID that depends on another issue
+</ParamField>
+
+<ParamField path="depends_on_id" type="string" required>
+  The issue ID that is depended on
+</ParamField>
+
+## Options
+
+<ParamField path="--json" type="boolean">
+  Output result in JSON format
+</ParamField>
+
+## Examples
+
+<CodeGroup>
+
+```bash Basic Usage
+# Remove a dependency
+tracer dep remove bd-2 bd-1
+```
+
+```bash JSON Output
+# Get JSON response
+tracer dep remove bd-2 bd-1 --json
+```
+
+</CodeGroup>
+
+## Output
+
+### Human-Readable Format
+
+```
+✓ Removed dependency: bd-2 --x--> bd-1
+```
+
+### JSON Format
+
+```json
+{
+  "status": "removed"
+}
+```
+
+<Note>
+  This command removes the dependency relationship but does not delete the issues themselves.
+</Note>
+
+<Tip>
+  If you're not sure which dependencies exist, use `tracer show <issue_id>` to view all dependencies for an issue.
+</Tip>

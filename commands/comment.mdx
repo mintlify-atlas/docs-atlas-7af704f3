@@ -1,0 +1,179 @@
+---
+title: tracer comment
+description: Add a comment to an issue
+---
+
+## Syntax
+
+```bash
+tracer comment <ISSUE_ID> <COMMENT>
+```
+
+## Description
+
+Adds a comment to an issue. Comments are stored in the event history and displayed when viewing issue details.
+
+## Arguments
+
+<ParamField path="ISSUE_ID" type="string" required>
+  The ID of the issue to comment on (e.g., `bd-1`).
+</ParamField>
+
+<ParamField path="COMMENT" type="string" required>
+  The comment text. Wrap in quotes if it contains spaces.
+</ParamField>
+
+## Options
+
+<ParamField path="--json" type="boolean">
+  Output the updated issue in JSON format.
+</ParamField>
+
+## Examples
+
+<CodeGroup>
+
+```bash Add simple comment
+tracer comment bd-5 "Working on this now"
+```
+
+```bash Implementation note
+tracer comment bd-7 "Fixed by updating the validation logic in auth.rs"
+```
+
+```bash Blocker information
+tracer comment bd-10 "Blocked until API key is provisioned"
+```
+
+```bash Progress update
+tracer comment bd-3 "Completed schema design, starting implementation"
+```
+
+```bash Multi-line comment
+tracer comment bd-12 "Found three issues:
+1. Null pointer in parser
+2. Missing error handling
+3. Race condition in cache"
+```
+
+```bash Reference other issues
+tracer comment bd-8 "Related to bd-15 and bd-16"
+```
+
+```bash JSON output
+tracer comment bd-5 "Comment text" --json
+```
+
+</CodeGroup>
+
+## Output Format
+
+### Human-readable
+
+```
+✓ Added comment to bd-5
+```
+
+### JSON (with --json flag)
+
+```json
+{
+  "id": "bd-5",
+  "title": "Fix null pointer in parser",
+  "description": "Parser crashes when input is empty or malformed",
+  "design": "",
+  "acceptance_criteria": "",
+  "notes": "",
+  "status": "in_progress",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "agent-1",
+  "estimated_minutes": null,
+  "created_at": "2026-03-02T14:30:00Z",
+  "updated_at": "2026-03-04T11:30:00Z",
+  "closed_at": null,
+  "external_ref": null,
+  "dependencies": []
+}
+```
+
+### Issue not found
+
+```
+Error: Issue bd-999 not found
+```
+
+## Viewing Comments
+
+Comments are displayed when showing issue details:
+
+```bash
+tracer show bd-5
+```
+
+```
+bd-5 Fix null pointer in parser [P0, bug]
+  Status: in_progress
+  Assignee: agent-1
+  Created: 2026-03-02 14:30 | Updated: 2026-03-04 11:30
+
+  Description:
+  Parser crashes when input is empty or malformed
+
+  Recent comments:
+    agent-1 (just now): "Fixed by adding null checks"
+    human-dev (2 hours ago): "This is blocking deployment"
+    agent-1 (5 hours ago): "Found the root cause in tokenizer"
+```
+
+## Use Cases
+
+### For AI Agents
+
+```bash
+# Log implementation approach
+tracer comment bd-5 "Using strategy pattern to handle different input types"
+
+# Document discovered issues
+tracer comment bd-5 "Found edge case: empty arrays not handled"
+
+# Track progress
+tracer comment bd-5 "Completed implementation, writing tests"
+
+# Note blockers
+tracer comment bd-5 "Waiting for API documentation before proceeding"
+```
+
+### For Human Collaboration
+
+```bash
+# Provide context
+tracer comment bd-10 "This affects the production deployment scheduled for Friday"
+
+# Ask questions
+tracer comment bd-7 "Should we support legacy format or migrate everything?"
+
+# Share findings
+tracer comment bd-12 "Reproduced on staging, root cause is rate limiting"
+```
+
+<Note>
+Comments include the actor name and timestamp automatically. Use `$TRACE_ACTOR` environment variable to set your identity:
+
+```bash
+export TRACE_ACTOR="agent-name"
+tracer comment bd-5 "Starting work"
+```
+</Note>
+
+<Tip>
+Comments are particularly useful for:
+
+- Recording implementation decisions
+- Noting blockers and their resolution
+- Documenting edge cases discovered during work
+- Providing status updates for long-running tasks
+- Sharing context with other team members or agents
+
+Use `tracer show <id> --full` to see the complete comment history along with all other events.
+</Tip>

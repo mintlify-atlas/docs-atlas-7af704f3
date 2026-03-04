@@ -1,0 +1,281 @@
+---
+title: Issues
+description: Understanding issue structure, types, fields, and validation rules in Tracer
+---
+
+## Overview
+
+Issues are the core work items in Tracer. Each issue represents a trackable piece of work with structured fields, type classification, and validation rules.
+
+## Issue Structure
+
+Every issue in Tracer contains the following fields:
+
+```rust
+pub struct Issue {
+    pub id: String,                       // Unique identifier (e.g., "bd-1")
+    pub title: String,                    // Issue title
+    pub description: String,              // Detailed description
+    pub design: String,                   // Design notes and approach
+    pub acceptance_criteria: String,      // Criteria for completion
+    pub notes: String,                    // Additional notes
+    pub status: Status,                   // Current status
+    pub priority: i32,                    // Priority level (0-4)
+    pub issue_type: IssueType,           // Type of issue
+    pub assignee: String,                 // Who is working on it
+    pub estimated_minutes: Option<i32>,  // Time estimate
+    pub created_at: DateTime<Utc>,       // Creation timestamp
+    pub updated_at: DateTime<Utc>,       // Last update timestamp
+    pub closed_at: Option<DateTime<Utc>>, // When it was closed
+    pub external_ref: Option<String>,    // External reference (GitHub, JIRA, etc.)
+    pub dependencies: Vec<Dependency>,   // Linked dependencies
+}
+```
+
+<Info>
+  The `assignee` field is automatically set when an issue transitions to `in_progress` status.
+</Info>
+
+## Required Fields
+
+### Title
+
+The title is the only truly required field for creating an issue. It must:
+- Not be empty
+- Be 500 characters or less
+
+```bash
+# Minimal issue creation
+tracer create "Implement user authentication"
+```
+
+### Auto-populated Fields
+
+These fields are automatically set if not provided:
+- `status`: Defaults to `open`
+- `priority`: Defaults to `2` (medium)
+- `issue_type`: Defaults to `task`
+- `created_at`: Set to current time
+- `updated_at`: Set to current time
+- `description`, `design`, `acceptance_criteria`, `notes`: Default to empty strings
+
+## Issue Types
+
+Tracer supports five issue types, each serving a different purpose:
+
+<Accordion title="Bug">
+  Used for defects, errors, or unexpected behavior that needs fixing.
+  
+  ```bash
+  tracer create "Fix null pointer in validation" -t bug -p 0
+  ```
+  
+  Bugs typically have higher priority and should be fixed before new features.
+</Accordion>
+
+<Accordion title="Feature">
+  New functionality or enhancements to existing features.
+  
+  ```bash
+  tracer create "Add OAuth login support" -t feature -p 1
+  ```
+  
+  Features represent user-facing improvements or new capabilities.
+</Accordion>
+
+<Accordion title="Task (default)">
+  General work items that don't fit other categories.
+  
+  ```bash
+  tracer create "Update dependencies" -t task -p 2
+  ```
+  
+  Tasks are the default type and work for most routine work.
+</Accordion>
+
+<Accordion title="Epic">
+  Large initiatives that contain multiple subtasks.
+  
+  ```bash
+  tracer create "User authentication system" -t epic -p 0
+  ```
+  
+  Epics use `parent-child` dependencies to organize related work. See [Dependencies](/concepts/dependencies) for details.
+</Accordion>
+
+<Accordion title="Chore">
+  Maintenance tasks, refactoring, or technical debt.
+  
+  ```bash
+  tracer create "Refactor database layer" -t chore -p 3
+  ```
+  
+  Chores improve code quality without changing functionality.
+</Accordion>
+
+## Optional Fields
+
+<Tabs>
+  <Tab title="Description">
+    Detailed explanation of the issue, context, and background.
+    
+    ```bash
+    tracer create "Add pagination" \
+      --description "API endpoints need pagination for large result sets. Start with /users endpoint."
+    ```
+    
+    Use descriptions to capture requirements and context that help others understand the work.
+  </Tab>
+  
+  <Tab title="Design">
+    Technical approach, architecture decisions, or implementation notes.
+    
+    ```bash
+    tracer update bd-1 \
+      --design "Use cursor-based pagination with base64 encoded tokens. Limit to 100 items per page."
+    ```
+    
+    Design notes help maintain consistency across the codebase.
+  </Tab>
+  
+  <Tab title="Acceptance Criteria">
+    Specific conditions that must be met for the issue to be considered complete.
+    
+    ```bash
+    tracer update bd-1 \
+      --acceptance-criteria "1. API returns max 100 items\n2. Includes next/prev cursors\n3. All tests pass"
+    ```
+    
+    Clear acceptance criteria prevent ambiguity about what "done" means.
+  </Tab>
+  
+  <Tab title="Notes">
+    Additional information, links, or reminders.
+    
+    ```bash
+    tracer update bd-1 \
+      --notes "See RFC-123 for pagination design. Reference implementation in repo-x."
+    ```
+    
+    Use notes for anything that doesn't fit in other fields.
+  </Tab>
+</Tabs>
+
+## Time Estimation
+
+The `estimated_minutes` field helps with planning and tracking:
+
+```bash
+# Create issue with 2-hour estimate
+tracer create "Write API documentation" --estimate 120
+
+# Update estimate later
+tracer update bd-1 --estimate 180
+```
+
+<Tip>
+  AI agents can use estimates to prioritize work that fits available time windows.
+</Tip>
+
+## External References
+
+Link issues to external systems like GitHub, JIRA, or Linear:
+
+```bash
+tracer create "Sync with upstream" \
+  --external-ref "https://github.com/org/repo/issues/42"
+```
+
+External references appear in `tracer show` output and help maintain traceability.
+
+## Validation Rules
+
+All issues are validated before creation or update (see `types.rs:37`):
+
+1. **Title**: Required, 1-500 characters
+2. **Priority**: Must be 0-4 (see [Priorities](/concepts/priorities))
+3. **Estimated Minutes**: Cannot be negative if provided
+
+```bash
+# This will fail - title too long
+tracer create "$(printf 'A%.0s' {1..501})"
+# Error: title must be 500 characters or less (got 501)
+
+# This will fail - invalid priority
+tracer create "Task" -p 5
+# Error: priority must be between 0 and 4 (got 5)
+```
+
+<Note>
+  Validation errors prevent invalid data from entering the database. Fix the error and try again.
+</Note>
+
+## Working with Issues
+
+### View Issue Details
+
+```bash
+# Human-readable format
+tracer show bd-1
+
+# JSON for programmatic access
+tracer show bd-1 --json
+```
+
+### Update Multiple Fields
+
+```bash
+tracer update bd-1 \
+  --status in_progress \
+  --priority 1 \
+  --assignee "agent-1"
+```
+
+### Search and Filter
+
+```bash
+# Find all open bugs
+tracer list --status open --type bug
+
+# High-priority features
+tracer list --type feature --priority 0
+
+# Issues assigned to specific agent
+tracer list --assignee "agent-1"
+```
+
+## Best Practices
+
+<Accordion title="Write clear, actionable titles">
+  Titles should describe what needs to be done, not the problem.
+  
+  **Good**: "Add pagination to /users endpoint"  
+  **Bad**: "Users endpoint slow"
+</Accordion>
+
+<Accordion title="Use appropriate types">
+  Choose the type that best matches the work:
+  - Fixing broken behavior → `bug`
+  - Adding new capability → `feature`
+  - Large multi-part work → `epic`
+  - Code cleanup → `chore`
+  - Everything else → `task`
+</Accordion>
+
+<Accordion title="Set priorities wisely">
+  Not everything is P0. See [Priorities](/concepts/priorities) for guidance.
+</Accordion>
+
+<Accordion title="Add context in description">
+  Future you (or other agents) will appreciate the background information.
+</Accordion>
+
+<Accordion title="Use external refs for traceability">
+  Link to GitHub issues, design docs, or related tickets to maintain audit trail.
+</Accordion>
+
+## Next Steps
+
+- Learn about [Status Workflow](/concepts/status-workflow) to understand issue lifecycle
+- Explore [Dependencies](/concepts/dependencies) to link related issues
+- Read about [Priorities](/concepts/priorities) for effective prioritization

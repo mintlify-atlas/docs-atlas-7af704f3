@@ -1,0 +1,407 @@
+---
+title: "JSON Output Format"
+description: "Complete reference for JSON output formats from all Tracer commands"
+---
+
+## Overview
+
+All Tracer commands support `--json` output for programmatic parsing. This makes it easy to integrate Tracer into agent workflows and scripts.
+
+<Tip>
+Always use `--json` when parsing Tracer output in scripts to ensure consistent, machine-readable responses.
+</Tip>
+
+## Enable JSON Output
+
+Add `--json` to any command:
+
+```bash
+tracer ready --json
+tracer create "Task" --json
+tracer stats --json
+```
+
+## Response Formats
+
+### Ready Work
+
+Returns an array of issues that are unblocked and ready to work on:
+
+```json
+[
+  {
+    "id": "bd-1",
+    "title": "Implement feature X",
+    "description": "Detailed description",
+    "design": "",
+    "acceptance_criteria": "",
+    "notes": "",
+    "status": "open",
+    "priority": 1,
+    "issue_type": "feature",
+    "assignee": "",
+    "estimated_minutes": null,
+    "created_at": "2025-10-15T10:00:00Z",
+    "updated_at": "2025-10-15T10:00:00Z",
+    "closed_at": null,
+    "external_ref": null,
+    "dependencies": []
+  }
+]
+```
+
+<CodeGroup>
+```bash Get Ready Work
+tracer ready --json
+```
+
+```bash Parse with jq
+# Get first ready issue ID
+ISSUE_ID=$(tracer ready --json | jq -r '.[0].id')
+```
+</CodeGroup>
+
+### Issue Creation
+
+Returns the newly created issue:
+
+```json
+{
+  "id": "bd-42",
+  "title": "New issue",
+  "description": "",
+  "design": "",
+  "acceptance_criteria": "",
+  "notes": "",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "",
+  "estimated_minutes": null,
+  "created_at": "2025-10-15T10:30:00Z",
+  "updated_at": "2025-10-15T10:30:00Z",
+  "closed_at": null,
+  "external_ref": null,
+  "dependencies": []
+}
+```
+
+<CodeGroup>
+```bash Create Issue
+tracer create "Fix bug" -t bug -p 0 --json
+```
+
+```bash Capture ID
+# Create and capture the ID
+NEW_ID=$(tracer create "Fix bug" -t bug --json | jq -r '.id')
+echo "Created: $NEW_ID"
+```
+</CodeGroup>
+
+### Issue Update
+
+Returns the updated issue:
+
+```json
+{
+  "id": "bd-1",
+  "title": "Updated title",
+  "description": "Updated description",
+  "design": "",
+  "acceptance_criteria": "",
+  "notes": "",
+  "status": "in_progress",
+  "priority": 1,
+  "issue_type": "feature",
+  "assignee": "agent-1",
+  "estimated_minutes": null,
+  "created_at": "2025-10-15T10:00:00Z",
+  "updated_at": "2025-10-15T11:00:00Z",
+  "closed_at": null,
+  "external_ref": null,
+  "dependencies": []
+}
+```
+
+<CodeGroup>
+```bash Update Status
+tracer update bd-1 --status in_progress --json
+```
+
+```bash Update Multiple Fields
+tracer update bd-1 --status in_progress --priority 0 --json
+```
+</CodeGroup>
+
+### Issue Details
+
+Returns a single issue with all details:
+
+```json
+{
+  "id": "bd-1",
+  "title": "Implement feature X",
+  "description": "Full description here",
+  "design": "Design notes",
+  "acceptance_criteria": "Criteria here",
+  "notes": "Additional notes",
+  "status": "in_progress",
+  "priority": 1,
+  "issue_type": "feature",
+  "assignee": "agent-1",
+  "estimated_minutes": 120,
+  "created_at": "2025-10-15T10:00:00Z",
+  "updated_at": "2025-10-15T11:00:00Z",
+  "closed_at": null,
+  "external_ref": "JIRA-123",
+  "dependencies": [
+    {
+      "issue_id": "bd-2",
+      "depends_on_id": "bd-1",
+      "dep_type": "blocks",
+      "created_at": "2025-10-15T10:05:00Z",
+      "created_by": "agent-1"
+    }
+  ]
+}
+```
+
+<CodeGroup>
+```bash Show Issue
+tracer show bd-1 --json
+```
+
+```bash Parse Field
+# Get issue status
+STATUS=$(tracer show bd-1 --json | jq -r '.status')
+```
+</CodeGroup>
+
+### Issue List
+
+Returns an array of issues matching the filter:
+
+```json
+[
+  {
+    "id": "bd-1",
+    "title": "First issue",
+    "status": "open",
+    "priority": 1,
+    "issue_type": "feature",
+    "created_at": "2025-10-15T10:00:00Z",
+    "updated_at": "2025-10-15T10:00:00Z"
+  },
+  {
+    "id": "bd-2",
+    "title": "Second issue",
+    "status": "in_progress",
+    "priority": 0,
+    "issue_type": "bug",
+    "created_at": "2025-10-15T11:00:00Z",
+    "updated_at": "2025-10-15T11:30:00Z"
+  }
+]
+```
+
+<CodeGroup>
+```bash List Issues
+tracer list --status open --json
+```
+
+```bash Filter and Parse
+# Count open bugs
+tracer list --status open --type bug --json | jq 'length'
+```
+</CodeGroup>
+
+### Blocked Issues
+
+Returns blocked issues with the IDs of blocking issues:
+
+```json
+[
+  {
+    "issue": {
+      "id": "bd-2",
+      "title": "Blocked task",
+      "status": "open",
+      "priority": 1,
+      "issue_type": "task",
+      "created_at": "2025-10-15T10:00:00Z",
+      "updated_at": "2025-10-15T10:00:00Z"
+    },
+    "blocked_by": ["bd-1", "bd-3"]
+  }
+]
+```
+
+<CodeGroup>
+```bash Get Blocked
+tracer blocked --json
+```
+
+```bash Parse Blockers
+# Get all blocker IDs
+tracer blocked --json | jq -r '.[].blocked_by[]'
+```
+</CodeGroup>
+
+### Statistics
+
+Returns aggregate statistics about all issues:
+
+```json
+{
+  "total_issues": 12,
+  "open_issues": 8,
+  "in_progress_issues": 1,
+  "blocked_issues": 0,
+  "closed_issues": 3,
+  "ready_issues": 7,
+  "average_lead_time_hours": 2.3
+}
+```
+
+<CodeGroup>
+```bash Get Stats
+tracer stats --json
+```
+
+```bash Parse Stats
+# Check if there's ready work
+READY=$(tracer stats --json | jq -r '.ready_issues')
+if [ "$READY" -gt 0 ]; then
+  echo "$READY tasks ready to work on"
+fi
+```
+</CodeGroup>
+
+## Parsing Examples
+
+### Using jq
+
+`jq` is the recommended tool for parsing JSON output:
+
+<CodeGroup>
+```bash Extract Fields
+# Get issue ID
+tracer ready --json | jq -r '.[0].id'
+
+# Get issue title
+tracer show bd-1 --json | jq -r '.title'
+
+# Get priority
+tracer show bd-1 --json | jq -r '.priority'
+```
+
+```bash Filter Results
+# Get all P0 issues
+tracer list --json | jq '[.[] | select(.priority == 0)]
+
+# Get all in-progress tasks
+tracer list --json | jq '[.[] | select(.status == "in_progress")]'
+```
+
+```bash Count Results
+# Count ready issues
+tracer ready --json | jq 'length'
+
+# Count open bugs
+tracer list --type bug --status open --json | jq 'length'
+```
+</CodeGroup>
+
+### Common Patterns
+
+<Accordion title="Check for Ready Work">
+```bash
+# Check if there's any ready work
+WORK=$(tracer ready --json)
+if [ "$(echo $WORK | jq length)" -gt 0 ]; then
+  echo "Found ready work"
+else
+  echo "No ready work"
+fi
+```
+</Accordion>
+
+<Accordion title="Create and Link Issues">
+```bash
+# Create issue and link it
+NEW_ID=$(tracer create "Fix bug" -t bug --json | jq -r '.id')
+tracer dep add $NEW_ID bd-5 --type discovered-from
+echo "Created and linked: $NEW_ID"
+```
+</Accordion>
+
+<Accordion title="Batch Processing">
+```bash
+# Process all ready work
+tracer ready --json | jq -r '.[].id' | while read ISSUE_ID; do
+  echo "Processing: $ISSUE_ID"
+  tracer update $ISSUE_ID --status in_progress
+  # Do work...
+  tracer close $ISSUE_ID --reason "Completed"
+done
+```
+</Accordion>
+
+<Accordion title="Status Monitoring">
+```bash
+# Monitor progress
+while true; do
+  STATS=$(tracer stats --json)
+  READY=$(echo $STATS | jq -r '.ready_issues')
+  IN_PROGRESS=$(echo $STATS | jq -r '.in_progress_issues')
+  
+  echo "Ready: $READY, In Progress: $IN_PROGRESS"
+  sleep 60
+done
+```
+</Accordion>
+
+## Field Reference
+
+### Issue Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Unique issue identifier (e.g., "bd-1") |
+| `title` | string | Issue title |
+| `description` | string | Detailed description |
+| `design` | string | Design notes |
+| `acceptance_criteria` | string | Acceptance criteria |
+| `notes` | string | Additional notes |
+| `status` | string | One of: `open`, `in_progress`, `blocked`, `closed` |
+| `priority` | number | 0 (highest) to 4 (lowest) |
+| `issue_type` | string | One of: `task`, `bug`, `feature`, `epic`, `spike` |
+| `assignee` | string | Assigned person or agent |
+| `estimated_minutes` | number \| null | Estimated time in minutes |
+| `created_at` | string | ISO 8601 timestamp |
+| `updated_at` | string | ISO 8601 timestamp |
+| `closed_at` | string \| null | ISO 8601 timestamp |
+| `external_ref` | string \| null | External system reference |
+| `dependencies` | array | Array of dependency objects |
+
+### Dependency Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `issue_id` | string | The dependent issue ID |
+| `depends_on_id` | string | The issue it depends on |
+| `dep_type` | string | One of: `blocks`, `parent-child`, `discovered-from`, `related` |
+| `created_at` | string | ISO 8601 timestamp |
+| `created_by` | string | Who created this dependency |
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Best Practices" icon="star" href="/integration/best-practices">
+    Learn proven patterns for agent integration
+  </Card>
+  
+  <Card title="CLI Reference" icon="terminal" href="/cli/overview">
+    Complete command reference
+  </Card>
+</CardGroup>

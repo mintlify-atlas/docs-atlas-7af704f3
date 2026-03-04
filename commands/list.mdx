@@ -1,0 +1,170 @@
+---
+title: tracer list
+description: List and filter issues in your tracer database
+---
+
+## Syntax
+
+```bash
+tracer list [OPTIONS]
+```
+
+## Description
+
+Lists all issues matching the specified filters. Without filters, returns all issues in the database.
+
+## Options
+
+<ParamField path="--status" type="enum">
+  Filter by status. Valid values: `open`, `in_progress`, `blocked`, `closed`.
+</ParamField>
+
+<ParamField path="--priority" type="integer">
+  Filter by exact priority level (0-4).
+</ParamField>
+
+<ParamField path="--issue-type" type="enum">
+  Filter by issue type. Valid values: `bug`, `feature`, `task`, `epic`, `chore`.
+</ParamField>
+
+<ParamField path="--assignee" type="string">
+  Filter by assignee name.
+</ParamField>
+
+<ParamField path="-l, --labels" type="string">
+  Filter by labels (comma-separated). Returns issues with ANY of the specified labels.
+</ParamField>
+
+<ParamField path="--limit" type="integer">
+  Maximum number of results to return.
+</ParamField>
+
+<ParamField path="--json" type="boolean">
+  Output results in JSON format.
+</ParamField>
+
+## Examples
+
+<CodeGroup>
+
+```bash All issues
+tracer list
+```
+
+```bash Open issues only
+tracer list --status open
+```
+
+```bash High-priority bugs
+tracer list --issue-type bug --priority 0
+```
+
+```bash Issues assigned to an agent
+tracer list --assignee "agent-1"
+```
+
+```bash Issues with specific labels
+tracer list --labels "security,urgent"
+```
+
+```bash In-progress work (limited)
+tracer list --status in_progress --limit 5
+```
+
+```bash Closed features
+tracer list --status closed --issue-type feature
+```
+
+```bash Combined filters
+tracer list --status open --priority 0 --limit 10
+```
+
+</CodeGroup>
+
+## Output Format
+
+### Human-readable
+
+```
+Found 3 issue(s):
+
+bd-1 Implement user authentication [P0, feature]
+  Status: open
+  Created: 2026-03-01 10:00 | Updated: 2026-03-01 10:00
+
+bd-5 Fix null pointer in parser [P0, bug]
+  Status: in_progress
+  Assignee: agent-1
+  Created: 2026-03-02 14:30 | Updated: 2026-03-04 09:15
+
+bd-8 Update documentation [P2, chore]
+  Status: open
+  Created: 2026-03-03 16:00 | Updated: 2026-03-03 16:00
+```
+
+### JSON (with --json flag)
+
+```json
+[
+  {
+    "id": "bd-1",
+    "title": "Implement user authentication",
+    "description": "",
+    "design": "",
+    "acceptance_criteria": "",
+    "notes": "",
+    "status": "open",
+    "priority": 0,
+    "issue_type": "feature",
+    "assignee": "",
+    "estimated_minutes": null,
+    "created_at": "2026-03-01T10:00:00Z",
+    "updated_at": "2026-03-01T10:00:00Z",
+    "closed_at": null,
+    "external_ref": null,
+    "dependencies": []
+  },
+  {
+    "id": "bd-5",
+    "title": "Fix null pointer in parser",
+    "description": "Parser crashes on empty input",
+    "design": "",
+    "acceptance_criteria": "",
+    "notes": "",
+    "status": "in_progress",
+    "priority": 0,
+    "issue_type": "bug",
+    "assignee": "agent-1",
+    "estimated_minutes": null,
+    "created_at": "2026-03-02T14:30:00Z",
+    "updated_at": "2026-03-04T09:15:00Z",
+    "closed_at": null,
+    "external_ref": null,
+    "dependencies": []
+  }
+]
+```
+
+### No results
+
+```
+No issues found
+```
+
+<Note>
+Filters are combined with AND logic. For example, `--status open --priority 0` returns issues that are both open AND priority 0.
+
+The exception is labels, which uses OR logic: `--labels "a,b"` returns issues with label "a" OR label "b".
+</Note>
+
+<Tip>
+Use `--json` with `jq` for advanced filtering:
+
+```bash
+# Count issues by type
+tracer list --json | jq 'group_by(.issue_type) | map({type: .[0].issue_type, count: length})'
+
+# Get all issue IDs
+tracer list --json | jq -r '.[].id'
+```
+</Tip>

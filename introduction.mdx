@@ -1,0 +1,155 @@
+---
+title: Introduction
+description: Lightweight issue tracker designed for AI agents to coordinate work and track dependencies
+---
+
+## What is Tracer?
+
+Tracer is a lightweight, CLI-based issue tracker specifically designed for AI agents. It helps agents track tasks, manage dependencies between work items, and coordinate when multiple agents work on the same project.
+
+Unlike traditional issue trackers that focus on human collaboration, Tracer is optimized for:
+- AI agents that need to maintain context across sessions
+- Long-horizon tasks that span multiple conversations
+- Multi-agent workflows where different AI agents coordinate on shared work
+- Git-based workflows with JSONL storage for easy version control
+
+## Key Features
+
+### Dependency Tracking
+
+Tracer understands relationships between tasks with four dependency types:
+
+- **blocks** - Task A cannot start until Task B is complete
+- **parent-child** - Task B is a subtask of epic A
+- **discovered-from** - Task B was found while working on Task A
+- **related** - Tasks A and B are connected but don't block each other
+
+### Ready Work Detection
+
+Automatically identifies which issues are ready to start by analyzing the dependency graph:
+
+```bash
+tracer ready
+# Shows only issues with no blockers
+
+tracer blocked
+# Shows issues that are blocked and what's blocking them
+```
+
+### Multi-Agent Coordination
+
+Multiple AI agents can work together on the same project:
+
+- Auto-assignment when agents start work
+- Comment threads for agent communication
+- Audit trail showing who did what and when
+- Actor identification with `--actor` flag
+
+### JSON Output for AI Consumption
+
+Every command supports `--json` flag for programmatic parsing:
+
+```bash
+tracer ready --json
+tracer show bd-1 --json
+tracer stats --json
+```
+
+### Git-Friendly Storage
+
+Tracer uses SQLite for local operations and JSONL for version control:
+
+- Database stored in `.trace/<prefix>.db`
+- Auto-exports to `.trace/issues.jsonl` for git tracking
+- Auto-imports changes pulled from remote
+- Handles merge conflicts gracefully
+
+## Use Cases for AI Agents
+
+<CardGroup cols={2}>
+  <Card title="Long-Horizon Planning" icon="map">
+    Break down complex features into trackable tasks that persist across sessions. AI agents can pick up where they left off.
+  </Card>
+  
+  <Card title="Discovered Work" icon="magnifying-glass">
+    File bugs and tasks as you discover them during implementation. Link them back to parent work with `discovered-from` dependencies.
+  </Card>
+  
+  <Card title="Multi-Agent Projects" icon="users">
+    Multiple agents coordinate by checking ready work, leaving comments, and tracking who's working on what.
+  </Card>
+  
+  <Card title="Dependency Management" icon="diagram-project">
+    Understand which tasks block others. Agents can work on unblocked tasks while waiting for dependencies.
+  </Card>
+</CardGroup>
+
+## How It Works
+
+<Steps>
+  <Step title="Initialize in your project">
+    Run `tracer init` to create the `.trace` directory with a SQLite database and JSONL file.
+  </Step>
+  
+  <Step title="Create issues as you work">
+    Use `tracer create` to file tasks, bugs, features, and epics. Add dependencies to show relationships.
+  </Step>
+  
+  <Step title="Find ready work">
+    Run `tracer ready` to see what's unblocked and ready to start. The dependency graph is analyzed automatically.
+  </Step>
+  
+  <Step title="Update as you progress">
+    Mark issues as `in_progress`, add comments, and close when complete. All changes sync to JSONL.
+  </Step>
+  
+  <Step title="Commit to git">
+    The `.trace/issues.jsonl` file is designed for version control. Commit it alongside your code changes.
+  </Step>
+</Steps>
+
+## Example Workflow
+
+```bash
+# Agent starts session - what's ready?
+tracer ready --limit 3
+
+# Pick highest priority work
+tracer update bd-8 --status in_progress
+
+# Work on it, discover an issue
+tracer create "Add tests for validation" -t task -p 1
+tracer dep add bd-12 bd-8 --type discovered-from
+
+# Complete the work
+tracer close bd-8 --reason "Fixed validation and added tests"
+
+# Check overall progress
+tracer stats
+```
+
+<Note>
+  Tracer's SQLite database is the source of truth during work. Changes automatically export to JSONL for git tracking.
+</Note>
+
+## Architecture
+
+Tracer is built in Rust for performance and reliability:
+
+- **Storage**: SQLite for fast queries, JSONL for git sync
+- **CLI**: Clap for argument parsing, colored output for humans
+- **Auto-discovery**: Walks parent directories to find `.trace` like git does
+- **Actor tracking**: Every change records who made it
+- **Dirty tracking**: Only modified issues export to JSONL
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    Install Tracer using cargo or from source
+  </Card>
+  
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Get started with your first project in 5 minutes
+  </Card>
+</CardGroup>

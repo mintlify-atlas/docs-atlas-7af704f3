@@ -1,0 +1,370 @@
+---
+title: Priorities
+description: Understanding priority levels 0-4, what each means, and how to use them effectively in Tracer
+---
+
+## Overview
+
+Priorities help you order work by importance and urgency. Tracer uses a 5-level priority system (0-4), where **lower numbers mean higher priority**.
+
+## Priority Levels
+
+### Priority 0 - Critical
+
+Urgent work that blocks everything else or represents severe issues.
+
+```bash
+tracer create "Production database down" -t bug -p 0
+tracer create "Security vulnerability in auth" -t bug -p 0
+```
+
+**When to use:**
+- Production outages or severe bugs
+- Security vulnerabilities
+- Data loss or corruption issues
+- Critical blockers for launches or deployments
+
+<Note>
+  P0 should be rare. If everything is P0, nothing is. Reserve it for true emergencies.
+</Note>
+
+**Examples:**
+- "Fix memory leak causing crashes"
+- "Patch SQL injection vulnerability"
+- "Restore backup after data corruption"
+
+### Priority 1 - High
+
+Important work that should be done soon but isn't an emergency.
+
+```bash
+tracer create "Implement user authentication" -t feature -p 1
+tracer create "Fix login error on mobile" -t bug -p 1
+```
+
+**When to use:**
+- High-impact features for upcoming releases
+- Important bugs affecting many users
+- Work that blocks other planned tasks
+- Core functionality improvements
+
+**Examples:**
+- "Add OAuth login support"
+- "Fix pagination bug in user list"
+- "Complete API endpoints for mobile app"
+
+### Priority 2 - Medium (Default)
+
+Normal work that should be done but has no special urgency.
+
+```bash
+tracer create "Add user profile page" -t feature -p 2
+tracer create "Update dependencies" -t task -p 2
+```
+
+**When to use:**
+- Standard features and enhancements
+- Minor bugs with workarounds
+- Routine maintenance tasks
+- Most day-to-day work
+
+<Info>
+  P2 is the default priority if none is specified. It's appropriate for the majority of issues.
+</Info>
+
+**Examples:**
+- "Add dark mode support"
+- "Improve error messages"
+- "Write API documentation"
+
+### Priority 3 - Low
+
+Nice-to-have work that can wait if higher priority items exist.
+
+```bash
+tracer create "Refactor database layer" -t chore -p 3
+tracer create "Add tooltip to settings button" -t feature -p 3
+```
+
+**When to use:**
+- Technical debt and refactoring
+- Minor UX improvements
+- Performance optimizations (non-critical)
+- Code cleanup and organization
+
+**Examples:**
+- "Extract common validation logic"
+- "Improve code comments"
+- "Consolidate duplicate styles"
+
+### Priority 4 - Backlog
+
+Work that might be done eventually but has no timeline.
+
+```bash
+tracer create "Add AI-powered search" -t feature -p 4
+tracer create "Investigate GraphQL migration" -t task -p 4
+```
+
+**When to use:**
+- Ideas and future possibilities
+- Large projects without clear timelines
+- Experimental or research work
+- Things that might never be done
+
+**Examples:**
+- "Explore microservices architecture"
+- "Research A/B testing frameworks"
+- "Add multi-language support"
+
+<Tip>
+  Use P4 to capture ideas without committing to doing them. Review periodically and promote items that become important.
+</Tip>
+
+## Priority Validation
+
+Priorities must be between 0 and 4 (see `types.rs:44`):
+
+```bash
+# Valid
+tracer create "Task" -p 0  # OK
+tracer create "Task" -p 4  # OK
+
+# Invalid
+tracer create "Task" -p 5
+# Error: priority must be between 0 and 4 (got 5)
+
+tracer create "Task" -p -1
+# Error: priority must be between 0 and 4 (got -1)
+```
+
+## How Priority Affects Work
+
+### Ready Work Ordering
+
+The `tracer ready` command sorts by priority (ascending) then creation date (descending):
+
+```bash
+tracer ready
+```
+
+From `sqlite.rs:340`:
+```sql
+ORDER BY i.priority ASC, i.created_at DESC
+```
+
+This means:
+1. P0 issues appear first
+2. Within same priority, newer issues appear first
+
+### List Ordering
+
+Similar ordering applies to `tracer list`:
+
+```bash
+tracer list --status open
+```
+
+Higher priority (lower number) items appear first.
+
+### Filtering by Priority
+
+You can filter to specific priorities:
+
+```bash
+# Only critical issues
+tracer list --priority 0
+
+# Ready work at priority 1
+tracer ready --priority 1
+
+# High-priority bugs
+tracer list --type bug --priority 1
+```
+
+## Changing Priority
+
+Priorities can be updated as circumstances change:
+
+```bash
+# Increase priority (lower number)
+tracer update bd-1 --priority 0
+tracer comment bd-1 "Upgrading to P0 - production impact"
+
+# Decrease priority (higher number)
+tracer update bd-5 --priority 3
+tracer comment bd-5 "Deprioritizing - nice to have"
+```
+
+<Tip>
+  Add a comment when changing priority to explain why. This provides context for future decisions.
+</Tip>
+
+## Priority Strategy
+
+### Distribution Guidelines
+
+A healthy issue tracker might have:
+
+- **P0**: 0-5% (rare emergencies)
+- **P1**: 10-20% (important near-term work)
+- **P2**: 40-60% (bulk of work)
+- **P3**: 20-30% (nice-to-haves)
+- **P4**: 10-20% (backlog)
+
+If everything is P0 or P1, priorities lose meaning.
+
+### Reassess Regularly
+
+Priorities should evolve:
+
+```bash
+# Review backlog monthly
+tracer list --priority 4
+
+# Promote important items
+tracer update bd-15 --priority 2
+tracer comment bd-15 "Customer requested, moving to active work"
+
+# Demote stale items
+tracer update bd-8 --priority 4
+tracer comment bd-8 "No longer needed, moving to backlog"
+```
+
+### Priority vs. Status
+
+Priority and status are independent:
+
+- **High priority + Open**: Do this next
+- **High priority + In Progress**: Being worked on
+- **High priority + Blocked**: Important but can't proceed
+- **Low priority + Open**: Do eventually
+
+```bash
+# A P0 issue might be blocked
+tracer update bd-1 --status blocked
+tracer comment bd-1 "P0 but waiting for external API fix"
+
+# A P4 issue might be in progress (slow day, chose to work on it)
+tracer update bd-20 --status in_progress
+```
+
+## Best Practices
+
+<Accordion title="Don't overuse P0">
+  P0 should be rare and reserved for true emergencies. If you create multiple P0s per week, recalibrate your scale.
+  
+  **Ask**: "Is this truly blocking everything else right now?"
+</Accordion>
+
+<Accordion title="Use P1 for important planned work">
+  P1 is for high-impact work that should be done soon but isn't an emergency.
+  
+  ```bash
+  tracer create "Complete API for mobile release" -p 1
+  ```
+</Accordion>
+
+<Accordion title="Default to P2 for routine work">
+  When in doubt, use P2. You can always adjust later.
+  
+  ```bash
+  tracer create "Add user profile page" -p 2
+  ```
+</Accordion>
+
+<Accordion title="Use P3 for tech debt">
+  Refactoring and cleanup often deserve P3 - important but not urgent.
+  
+  ```bash
+  tracer create "Extract common utilities" -t chore -p 3
+  ```
+</Accordion>
+
+<Accordion title="Capture ideas as P4">
+  Don't lose good ideas, but don't commit to doing them.
+  
+  ```bash
+  tracer create "Investigate new framework X" -p 4
+  tracer comment bd-30 "Interesting but no timeline yet"
+  ```
+</Accordion>
+
+<Accordion title="Review and adjust priorities">
+  As context changes, update priorities:
+  
+  ```bash
+  # Customer requested feature
+  tracer update bd-15 --priority 1
+  tracer comment bd-15 "Customer deadline next week"
+  
+  # Requirements changed
+  tracer update bd-8 --priority 4
+  tracer comment bd-8 "No longer on roadmap"
+  ```
+</Accordion>
+
+## Priority and Dependencies
+
+Priorities don't affect dependency blocking:
+
+```bash
+# Create high-priority feature
+tracer create "Launch payment system" -t feature -p 0
+# Created: bd-1
+
+# It depends on low-priority infrastructure
+tracer create "Set up payment gateway" -t task -p 2
+# Created: bd-2
+
+tracer dep add bd-1 bd-2 --type blocks
+```
+
+Result:
+- bd-1 is P0 but can't start (blocked by bd-2)
+- bd-2 is P2 but must be done first
+
+<Note>
+  Dependencies create hard ordering. Consider promoting the priority of blocking issues to match what they block.
+</Note>
+
+**Fix:**
+
+```bash
+# Promote blocking issue
+tracer update bd-2 --priority 0
+tracer comment bd-2 "Blocks P0 launch, promoting"
+```
+
+## Querying by Priority
+
+For advanced priority analysis, use JSON output:
+
+```bash
+# Count issues by priority
+tracer list --json | jq 'group_by(.priority) | map({priority: .[0].priority, count: length})'
+
+# Find highest priority ready work
+tracer ready --json | jq 'sort_by(.priority) | .[0]'
+
+# List all P0 and P1 bugs
+tracer list --type bug --json | jq '.[] | select(.priority <= 1)'
+```
+
+## Statistics
+
+The `stats` command doesn't break down by priority, but you can analyze manually:
+
+```bash
+# Count open issues by priority
+for p in 0 1 2 3 4; do
+  echo -n "P$p: "
+  tracer list --priority $p --status open --json | jq 'length'
+done
+```
+
+## Next Steps
+
+- Learn about [Status Workflow](/concepts/status-workflow) to understand issue lifecycle
+- See [Dependencies](/concepts/dependencies) for managing blocking relationships
+- Read [Issues](/concepts/issues) for core issue concepts

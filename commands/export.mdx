@@ -1,0 +1,76 @@
+---
+title: "export"
+description: "Export issues to JSONL format"
+---
+
+## Syntax
+
+```bash
+tracer export [OPTIONS]
+```
+
+## Options
+
+<ParamField path="--output" type="path">
+  Output file path (defaults to stdout if not specified)
+  
+  Short flag: `-o`
+</ParamField>
+
+<ParamField path="--status" type="string">
+  Filter by status: `open`, `in_progress`, `blocked`, or `closed`
+</ParamField>
+
+## Examples
+
+<CodeGroup>
+
+```bash Export to File
+# Export all issues to a file
+tracer export --output issues.jsonl
+```
+
+```bash Export to Stdout
+# Export to stdout for piping
+tracer export > backup.jsonl
+```
+
+```bash Filter by Status
+# Export only open issues
+tracer export --status open --output open-issues.jsonl
+```
+
+```bash Export Closed Issues
+# Export completed work for archival
+tracer export --status closed --output archive.jsonl
+```
+
+</CodeGroup>
+
+## Output Format
+
+The export command outputs in JSONL (JSON Lines) format, where each line is a complete JSON object representing one issue:
+
+```jsonl
+{"id":"bd-1","title":"Implement authentication","description":"Add OAuth support","status":"closed","priority":1,"issue_type":"feature","assignee":"alice@example.com","estimated_minutes":240,"created_at":"2025-03-01T10:00:00Z","updated_at":"2025-03-03T15:30:00Z","closed_at":"2025-03-03T15:30:00Z","dependencies":[{"issue_id":"bd-1","depends_on_id":"bd-2","type":"blocks","created_at":"2025-03-01T10:05:00Z","created_by":"alice@example.com"}]}
+{"id":"bd-2","title":"Design auth schema","description":"","status":"closed","priority":1,"issue_type":"task","assignee":"alice@example.com","created_at":"2025-03-01T09:00:00Z","updated_at":"2025-03-02T16:00:00Z","closed_at":"2025-03-02T16:00:00Z","dependencies":[]}
+{"id":"bd-3","title":"Create login endpoint","description":"","status":"open","priority":1,"issue_type":"task","assignee":"","created_at":"2025-03-04T10:00:00Z","updated_at":"2025-03-04T10:00:00Z","dependencies":[{"issue_id":"bd-3","depends_on_id":"bd-1","type":"parent-child","created_at":"2025-03-04T10:01:00Z","created_by":"system"}]}
+```
+
+## Issue Structure
+
+Each exported issue includes:
+
+- **Core fields**: id, title, description, status, priority, issue_type
+- **Assignment**: assignee, estimated_minutes
+- **Timestamps**: created_at, updated_at, closed_at (if closed)
+- **Dependencies**: array of dependency objects with type and metadata
+- **Optional fields**: design, acceptance_criteria, notes, external_ref
+
+<Note>
+  Issues are sorted by ID for consistent output. Dependencies are included inline with each issue.
+</Note>
+
+<Tip>
+  Use export for backups, migration between systems, or version control. The JSONL format is easy to process with tools like `jq`.
+</Tip>

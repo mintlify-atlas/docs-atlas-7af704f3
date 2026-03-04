@@ -1,0 +1,387 @@
+---
+title: "Git Integration"
+description: "Sync issues across machines, handle conflicts, and enable multi-machine workflows with Git"
+---
+
+## How Tracer Uses Git
+
+Tracer stores issues in JSONL (JSON Lines) format at `.trace/issues.jsonl`. This file is:
+- **Human-readable** - each line is a JSON object
+- **Git-friendly** - changes are easy to merge
+- **Portable** - works across any machine with Git
+
+Tracer automatically syncs between its SQLite database and the JSONL file, giving you the best of both worlds:
+- Fast queries via SQLite
+- Git-friendly storage for syncing
+
+## Automatic Export
+
+Every time you make a change, Tracer updates `.trace/issues.jsonl`:
+
+```bash
+# Create an issue
+tracer create "New feature" -t feature
+# ✓ Automatically written to .trace/issues.jsonl
+
+# Update status
+tracer update bd-1 --status in_progress
+# ✓ Automatically updates .trace/issues.jsonl
+```
+
+No manual export needed - it just works.
+
+<Note>
+The `.trace/` directory is designed to be committed to Git. Add it to your repository to share issues with your team.
+</Note>
+
+## Automatic Import
+
+When you pull changes from Git, Tracer detects updates automatically:
+
+```bash
+# Pull changes from remote
+git pull origin main
+
+# Run any tracer command
+tracer ready
+# ✓ Automatically imports updated issues from .trace/issues.jsonl
+```
+
+Tracer checks the file hash and only imports when changes are detected.
+
+## Multi-Machine Workflow
+
+Use Tracer seamlessly across multiple machines:
+
+<Steps>
+  <Step title="Machine A: Create issues">
+    ```bash
+    # On your laptop
+    tracer create "Implement auth" -t feature
+    tracer create "Add tests" -t task --deps "blocks:bd-1"
+    
+    # Commit and push
+    git add .trace/issues.jsonl
+    git commit -m "Add auth tasks"
+    git push origin main
+    ```
+  </Step>
+
+  <Step title="Machine B: Pull and continue">
+    ```bash
+    # On your server
+    git pull origin main
+    
+    # Issues automatically sync
+    tracer ready
+    # Shows: bd-1 Implement auth [P2, feature]
+    
+    # Start work
+    tracer update bd-1 --status in_progress
+    ```
+  </Step>
+
+  <Step title="Machine B: Push progress">
+    ```bash
+    # Make progress and update
+    tracer comment bd-1 "Auth endpoint implemented"
+    tracer close bd-1
+    
+    # Push changes back
+    git add .trace/issues.jsonl
+    git commit -m "Complete auth implementation"
+    git push origin main
+    ```
+  </Step>
+
+  <Step title="Machine A: Sync latest">
+    ```bash
+    # Pull updates
+    git pull origin main
+    
+    # See completed work
+    tracer show bd-1
+    # Status: closed
+    # Comment: "Auth endpoint implemented"
+    
+    # bd-2 is now unblocked and ready
+    tracer ready
+    # Shows: bd-2 Add tests [P2, task]
+    ```
+  </Step>
+</Steps>
+
+## Handling Merge Conflicts
+
+If two machines modify the same issue simultaneously, Git may create a merge conflict in `.trace/issues.jsonl`.
+
+### Resolving Conflicts
+
+<Steps>
+  <Step title="Git shows conflict">
+    ```bash
+    git pull origin main
+    # CONFLICT (content): Merge conflict in .trace/issues.jsonl
+    ```
+  </Step>
+
+  <Step title="Resolve the conflict">
+    Open `.trace/issues.jsonl` and resolve the conflict manually:
+    
+    ```jsonl
+    <<<<<<< HEAD
+    {"id":"bd-1","title":"Feature","status":"in_progress",...}
+    =======
+    {"id":"bd-1","title":"Feature","status":"closed",...}
+    >>>>>>> origin/main
+    ```
+    
+    **Usually keep both changes** (they're on separate lines):
+    
+    ```jsonl
+    {"id":"bd-1","title":"Feature","status":"closed",...}
+    {"id":"bd-2","title":"Other","status":"open",...}
+    ```
+    
+    For the same issue ID, keep the most recent version (check timestamps).
+  </Step>
+
+  <Step title="Import the resolved file">
+    ```bash
+    # Import to sync with database
+    tracer import -i .trace/issues.jsonl
+    
+    # Complete the merge
+    git add .trace/issues.jsonl
+    git commit -m "Resolve merge conflict in issues"
+    git push origin main
+    ```
+  </Step>
+</Steps>
+
+<Tip>
+JSONL format makes conflicts rare - each issue is on its own line, so most changes merge automatically.
+</Tip>
+
+## Manual Export & Import
+
+While Tracer handles sync automatically, you can manually export and import if needed.
+
+### Export Issues
+
+Export all issues to JSONL:
+
+```bash
+# Export to file
+tracer export -o backup.jsonl
+
+# Export to stdout
+tracer export
+
+# Export only open issues
+tracer export --status open -o open-issues.jsonl
+```
+
+<Tip>
+Use manual export to create backups or share filtered issue sets.
+</Tip>
+
+### Import Issues
+
+Import issues from JSONL:
+
+```bash
+# Import from file
+tracer import -i issues.jsonl
+
+# Import from stdin
+cat issues.jsonl | tracer import
+
+# Skip existing issues (don't update)
+tracer import -i issues.jsonl --skip-existing
+
+# Dry run to see what would be imported
+tracer import -i issues.jsonl --dry-run
+```
+
+Import behavior:
+- **New issues** - Created in the database
+- **Existing issues** - Updated with new data (unless `--skip-existing`)
+- **Dependencies** - Imported and created automatically
+
+<CodeGroup>
+```bash Update Existing
+# Import and update all issues
+tracer import -i issues.jsonl
+# ✓ Import complete:
+#   Created: 5
+#   Updated: 3
+```
+
+```bash Skip Existing
+# Only import new issues
+tracer import -i issues.jsonl --skip-existing
+# ✓ Import complete:
+#   Created: 5
+#   Updated: 0
+#   Skipped: 3
+```
+</CodeGroup>
+
+## JSONL Format
+
+Each line in `.trace/issues.jsonl` is a complete issue object:
+
+```jsonl
+{"id":"bd-1","title":"Implement auth","description":"","status":"open","priority":1,"issue_type":"feature","assignee":"","created_at":"2025-10-15T10:00:00Z","updated_at":"2025-10-15T10:00:00Z","closed_at":null,"dependencies":[]}
+{"id":"bd-2","title":"Add tests","description":"","status":"open","priority":2,"issue_type":"task","assignee":"","created_at":"2025-10-15T11:00:00Z","updated_at":"2025-10-15T11:00:00Z","closed_at":null,"dependencies":[{"issue_id":"bd-2","depends_on_id":"bd-1","dep_type":"blocks","created_at":"2025-10-15T11:00:00Z","created_by":"system"}]}
+```
+
+This format is:
+- One issue per line
+- Valid JSON on each line
+- Includes dependencies inline
+- Sortable and diffable
+
+<Note>
+Don't edit `.trace/issues.jsonl` manually unless you know what you're doing. Use `tracer` commands instead.
+</Note>
+
+## Multi-Agent Collaboration
+
+Multiple agents can work on the same project by syncing via Git:
+
+<CodeGroup>
+```bash Agent 1 Workflow
+# Agent 1: Claim work
+tracer --actor agent-1 update bd-5 --status in_progress
+tracer --actor agent-1 comment bd-5 "Starting API work"
+
+git add .trace/issues.jsonl
+git commit -m "agent-1: Start bd-5"
+git push origin main
+```
+
+```bash Agent 2 Workflow
+# Agent 2: Pull and see updates
+git pull origin main
+
+tracer show bd-5
+# Assignee: agent-1
+# Status: in_progress
+# Comment: "Starting API work"
+
+# Agent 2 works on something else
+tracer --actor agent-2 ready
+tracer --actor agent-2 update bd-7 --status in_progress
+```
+</CodeGroup>
+
+<Warning>
+**Coordinate work to avoid conflicts** - use `tracer show` to check who's working on what before starting.
+</Warning>
+
+## Git Best Practices
+
+<Tip>
+**Commit `.trace/` to your repository** - this makes issues available to everyone on your team.
+</Tip>
+
+<Tip>
+**Pull before starting work** - always `git pull` to get the latest issues before running `tracer ready`.
+</Tip>
+
+<Tip>
+**Commit frequently** - commit after completing or updating issues so others can see your progress.
+</Tip>
+
+<Tip>
+**Use meaningful commit messages** - reference issue IDs in commits:
+```bash
+git commit -m "bd-5: Implement auth endpoint"
+```
+</Tip>
+
+<Warning>
+**Don't force push** - this can cause lost issue data. Use normal merge workflows.
+</Warning>
+
+## Backup and Recovery
+
+Create backups of your issues:
+
+```bash
+# Backup all issues
+tracer export -o backup-$(date +%Y%m%d).jsonl
+
+# Restore from backup
+tracer import -i backup-20251015.jsonl
+```
+
+Your Git history is also a backup - you can always check out old versions:
+
+```bash
+# View issues from a previous commit
+git show HEAD~5:.trace/issues.jsonl
+
+# Restore issues from 3 days ago
+git checkout HEAD~10 -- .trace/issues.jsonl
+tracer import -i .trace/issues.jsonl
+```
+
+## Advanced: Custom Sync Scripts
+
+Automate syncing with Git hooks or scripts:
+
+<CodeGroup>
+```bash Auto-commit Hook
+# .git/hooks/post-commit
+#!/bin/bash
+if git diff --cached --name-only | grep -q '.trace/issues.jsonl'; then
+  echo "Issues updated"
+fi
+```
+
+```bash Periodic Sync
+#!/bin/bash
+# sync-issues.sh - Run periodically
+git pull --rebase origin main
+tracer ready > /dev/null  # Triggers auto-import
+git add .trace/issues.jsonl
+git commit -m "Sync issues" || true
+git push origin main
+```
+</CodeGroup>
+
+## Troubleshooting
+
+<Accordion title="Issues not syncing">
+Make sure `.trace/issues.jsonl` is committed:
+```bash
+git status
+git add .trace/issues.jsonl
+git commit -m "Add issues"
+git push origin main
+```
+</Accordion>
+
+<Accordion title="Changes not appearing after pull">
+Trigger import manually:
+```bash
+tracer import -i .trace/issues.jsonl
+```
+
+Or run any tracer command (import happens automatically):
+```bash
+tracer ready
+```
+</Accordion>
+
+<Accordion title="Lost changes after merge">
+Check Git history:
+```bash
+git log -p .trace/issues.jsonl
+```
+
+Restore from backup or previous commit if needed.
+</Accordion>
